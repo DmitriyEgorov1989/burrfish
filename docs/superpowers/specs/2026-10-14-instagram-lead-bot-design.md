@@ -62,7 +62,16 @@
 
 ## 4. Архитектура
 
-Решение реализуется как модульный монолит на ASP.NET Core. Один развёртываемый сервис содержит HTTP API, фоновые обработчики и адаптеры внешних систем. PostgreSQL является постоянным хранилищем.
+Решение реализуется как модульный монолит на ASP.NET Core с Clean Architecture, DDD и CQRS через MediatR. Один развёртываемый сервис содержит HTTP API, фоновые обработчики и адаптеры внешних систем. PostgreSQL является постоянным хранилищем. Полные правила и разрешённый граф зависимостей находятся в `docs/architecture.md`.
+
+Проекты разделены следующим образом:
+
+- `Burrfish.Domain` — агрегаты, сущности, value objects, инварианты и доменные события без внешних зависимостей;
+- `Burrfish.Application` — команды, запросы, MediatR handlers и порты внешних систем;
+- `Burrfish.Infrastructure` — EF Core, PostgreSQL, inbox/outbox, фоновые обработчики и адаптеры Meta, OpenAI и Telegram;
+- `Burrfish.Api` — composition root и HTTP-контракты без бизнес-логики.
+
+Domain не зависит от MediatR. Команды и запросы принадлежат Application, а HTTP endpoints и background workers запускают сценарии через `ISender`. MediatR не заменяет надёжные PostgreSQL inbox/outbox.
 
 Логические модули:
 

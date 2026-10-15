@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Burrfish.Api/Burrfish.Api.csproj" />
+    <Project Path="src/Burrfish.Application/Burrfish.Application.csproj" />
+    <Project Path="src/Burrfish.Domain/Burrfish.Domain.csproj" />
+    <Project Path="src/Burrfish.Infrastructure/Burrfish.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Burrfish.ApiContract.Tests/Burrfish.ApiContract.Tests.csproj" />
+    <Project Path="tests/Burrfish.Application.Tests/Burrfish.Application.Tests.csproj" />
+    <Project Path="tests/Burrfish.Domain.Tests/Burrfish.Domain.Tests.csproj" />
+    <Project Path="tests/Burrfish.Infrastructure.Tests/Burrfish.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Burrfish.IntegrationTests/Burrfish.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

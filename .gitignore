@@ -1,2 +1,8 @@
 # Runtime discovery link created by .harness/setup.ps1
 .agents/skills
+
+# .NET build and test artifacts
+**/bin/
+**/obj/
+.vs/
+TestResults/

@@ -4,9 +4,9 @@
 
 **Цель:** создать надёжного русскоязычного бота для одного Instagram Business-аккаунта, который отвечает утверждёнными шаблонами, уточняет потребность через OpenAI и после подтверждения уведомляет менеджера в Telegram.
 
-**Архитектура:** один ASP.NET Core модульный монолит с feature folders, PostgreSQL, сохраняемыми inbox/outbox и фоновыми обработчиками. Внешние API скрыты за узкими интерфейсами; бизнес-состояния и решения тестируются без сети и базы данных.
+**Архитектура:** один ASP.NET Core модульный монолит с Clean Architecture, DDD и CQRS через MediatR. `Domain` защищает инварианты без внешних зависимостей, `Application` содержит команды, запросы и порты, `Infrastructure` реализует persistence и внешние адаптеры, `Api` служит composition root. Полные правила находятся в `docs/architecture.md`.
 
-**Стек:** .NET 10, ASP.NET Core, EF Core, Npgsql, PostgreSQL, xUnit, Testcontainers for .NET, OpenAI HTTP API, Meta Instagram Messaging API, Telegram Bot API, Docker Compose.
+**Стек:** .NET 10, ASP.NET Core, MediatR 12.5.0, EF Core, Npgsql, PostgreSQL, xUnit, Testcontainers for .NET, OpenAI HTTP API, Meta Instagram Messaging API, Telegram Bot API, Docker Compose.
 
 **Спецификация:** `docs/superpowers/specs/2026-10-14-instagram-lead-bot-design.md`
 
@@ -20,6 +20,10 @@
 - Тексты сообщений и заявки удаляются через 30 календарных дней.
 - Секреты поступают только из переменных окружения или Docker secrets.
 - Полные тексты сообщений не записываются в журналы.
+- Граф зависимостей проектов и правила DDD/CQRS из `docs/architecture.md` обязательны для каждой задачи.
+- `Burrfish.Domain` не зависит от MediatR, EF Core, ASP.NET Core или внешних API.
+- Команды изменяют состояние, запросы не изменяют состояние, endpoints и workers используют `ISender`.
+- Используется `MediatR 12.5.0` с лицензией Apache-2.0; смена лицензии или версии требует согласования.
 - Сначала выполняется наиболее узкий тест, затем тесты проекта, сборка и `git diff --check`.
 - Перед добавлением NuGet-зависимостей исполнитель согласует их точные версии.
 - Перед Task 3 требуется разрешение на создание EF migration.
@@ -33,26 +37,19 @@ Burrfish.slnx
 Directory.Build.props
 Directory.Packages.props
 src/
-  Burrfish.App/
-    Burrfish.App.csproj
+  Burrfish.Domain/
+  Burrfish.Application/
+  Burrfish.Infrastructure/
+  Burrfish.Api/
     Program.cs
     appsettings.json
-    Configuration/
-    Features/
-      Conversations/
-      Instagram/
-      LeadQualification/
-    Infrastructure/
-      OpenAI/
-      Persistence/
-      Processing/
-      Telegram/
-      Time/
     Properties/launchSettings.json
 tests/
-  Burrfish.UnitTests/
+  Burrfish.Domain.Tests/
+  Burrfish.Application.Tests/
+  Burrfish.Infrastructure.Tests/
   Burrfish.IntegrationTests/
-  Burrfish.ContractTests/
+  Burrfish.ApiContract.Tests/
 deploy/
   Caddyfile
 docker-compose.yml
@@ -60,63 +57,75 @@ Dockerfile
 README.md
 ```
 
-`Burrfish.App` остаётся единственной производственной сборкой. Папки отражают функциональные границы, но не создают сетевых сервисов или формальных слоёв без необходимости.
+`Burrfish.Api` остаётся единственным исполняемым проектом и собирает `Application` и `Infrastructure` в один процесс. Разрешённые ссылки проектов определены в `docs/architecture.md` и проверяются архитектурными тестами.
 
 ---
 
 ### Task 1: Создать запускаемый каркас и типизированную конфигурацию
 
-**Результат:** приложение запускается на .NET 10, валидирует обязательные настройки при старте и не содержит секретов в репозитории.
+**Результат:** Clean Architecture solution запускается на .NET 10, регистрирует MediatR 12.5.0, валидирует обязательные настройки при старте и не содержит секретов в репозитории.
 
 **Файлы:**
 - Create: `Burrfish.slnx`
 - Create: `Directory.Build.props`
 - Create: `Directory.Packages.props`
-- Create: `src/Burrfish.App/Burrfish.App.csproj`
-- Create: `src/Burrfish.App/Program.cs`
-- Create: `src/Burrfish.App/appsettings.json`
-- Create: `src/Burrfish.App/Configuration/InstagramOptions.cs`
-- Create: `src/Burrfish.App/Configuration/OpenAiOptions.cs`
-- Create: `src/Burrfish.App/Configuration/TelegramOptions.cs`
-- Create: `src/Burrfish.App/Configuration/DialogOptions.cs`
-- Create: `tests/Burrfish.UnitTests/Burrfish.UnitTests.csproj`
-- Create: `tests/Burrfish.UnitTests/Configuration/OptionsValidationTests.cs`
+- Create: `src/Burrfish.Domain/Burrfish.Domain.csproj`
+- Create: `src/Burrfish.Application/Burrfish.Application.csproj`
+- Create: `src/Burrfish.Application/DependencyInjection.cs`
+- Create: `src/Burrfish.Infrastructure/Burrfish.Infrastructure.csproj`
+- Create: `src/Burrfish.Infrastructure/DependencyInjection.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/InstagramOptions.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/OpenAiOptions.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/TelegramOptions.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/DialogOptions.cs`
+- Create: `src/Burrfish.Api/Burrfish.Api.csproj`
+- Create: `src/Burrfish.Api/Program.cs`
+- Create: `src/Burrfish.Api/appsettings.json`
+- Create: `tests/Burrfish.Domain.Tests/Burrfish.Domain.Tests.csproj`
+- Create: `tests/Burrfish.Application.Tests/Burrfish.Application.Tests.csproj`
+- Create: `tests/Burrfish.Infrastructure.Tests/Burrfish.Infrastructure.Tests.csproj`
+- Create: `tests/Burrfish.Infrastructure.Tests/Configuration/OptionsValidationTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Burrfish.IntegrationTests.csproj`
-- Create: `tests/Burrfish.ContractTests/Burrfish.ContractTests.csproj`
+- Create: `tests/Burrfish.ApiContract.Tests/Burrfish.ApiContract.Tests.csproj`
 
 **Интерфейсы:**
 - Consumes: отсутствуют.
-- Produces: `InstagramOptions`, `OpenAiOptions`, `TelegramOptions`, `DialogOptions`; запускаемый host и общие тестовые проекты.
+- Produces: однонаправленный граф проектов, регистрацию MediatR, `InstagramOptions`, `OpenAiOptions`, `TelegramOptions`, `DialogOptions`; запускаемый host и тестовые проекты по архитектурным границам.
 
-- [ ] **Step 1: создать solution и проекты**
+- [x] **Step 1: создать solution и проекты**
 
 ```powershell
 dotnet new sln -n Burrfish --format slnx
-dotnet new web -n Burrfish.App -o .\src\Burrfish.App --framework net10.0
-dotnet new xunit -n Burrfish.UnitTests -o .\tests\Burrfish.UnitTests --framework net10.0
+dotnet new classlib -n Burrfish.Domain -o .\src\Burrfish.Domain --framework net10.0
+dotnet new classlib -n Burrfish.Application -o .\src\Burrfish.Application --framework net10.0
+dotnet new classlib -n Burrfish.Infrastructure -o .\src\Burrfish.Infrastructure --framework net10.0
+dotnet new web -n Burrfish.Api -o .\src\Burrfish.Api --framework net10.0
+dotnet new xunit -n Burrfish.Domain.Tests -o .\tests\Burrfish.Domain.Tests --framework net10.0
+dotnet new xunit -n Burrfish.Application.Tests -o .\tests\Burrfish.Application.Tests --framework net10.0
+dotnet new xunit -n Burrfish.Infrastructure.Tests -o .\tests\Burrfish.Infrastructure.Tests --framework net10.0
 dotnet new xunit -n Burrfish.IntegrationTests -o .\tests\Burrfish.IntegrationTests --framework net10.0
-dotnet new xunit -n Burrfish.ContractTests -o .\tests\Burrfish.ContractTests --framework net10.0
-dotnet sln .\Burrfish.slnx add .\src\Burrfish.App .\tests\Burrfish.UnitTests .\tests\Burrfish.IntegrationTests .\tests\Burrfish.ContractTests
+dotnet new xunit -n Burrfish.ApiContract.Tests -o .\tests\Burrfish.ApiContract.Tests --framework net10.0
+dotnet sln .\Burrfish.slnx add .\src .\tests
 ```
 
-- [ ] **Step 2: написать падающие тесты валидации**
+- [x] **Step 2: написать падающие тесты валидации**
 
 Проверить отсутствие `InstagramOptions.AppSecret`, пустой `OpenAiOptions.ApiKey`, неположительный `DialogOptions.RetentionDays` и отсутствие `TelegramOptions.ChatId`. Ожидать ошибку валидации с именем конкретного свойства без вывода его значения.
 
-- [ ] **Step 3: запустить узкий тест и подтвердить падение**
+- [x] **Step 3: запустить узкий тест и подтвердить падение**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~OptionsValidationTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OptionsValidationTests
 ```
 
 Ожидается `FAIL`, поскольку options и validators ещё отсутствуют.
 
-- [ ] **Step 4: реализовать options и регистрацию**
+- [x] **Step 4: реализовать options и регистрацию**
 
 Пример контракта:
 
 ```csharp
-namespace Burrfish.App.Configuration;
+namespace Burrfish.Infrastructure.Configuration;
 
 /// <summary>Настройки подключения одного Instagram Business-аккаунта.</summary>
 public sealed class InstagramOptions
@@ -140,10 +149,10 @@ public sealed class InstagramOptions
 
 Использовать `ValidateOnStart`; в `appsettings.json` оставить только пустые несекретные ключи и шаблоны `price`, `services`, fallback и confirmation.
 
-- [ ] **Step 5: пройти тесты и сборку**
+- [x] **Step 5: пройти тесты и сборку**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~OptionsValidationTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OptionsValidationTests
 dotnet build .\Burrfish.slnx
 git diff --check
 ```
@@ -157,11 +166,11 @@ git diff --check
 **Результат:** чистая доменная модель запрещает заявку без подтверждения и любые ответы после передачи менеджеру.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/Conversations/ConversationState.cs`
-- Create: `src/Burrfish.App/Features/Conversations/Conversation.cs`
-- Create: `src/Burrfish.App/Features/Conversations/LeadDraft.cs`
-- Create: `src/Burrfish.App/Features/Conversations/ConversationTransitionResult.cs`
-- Create: `tests/Burrfish.UnitTests/Conversations/ConversationTests.cs`
+- Create: `src/Burrfish.Domain/Conversations/ConversationState.cs`
+- Create: `src/Burrfish.Domain/Conversations/Conversation.cs`
+- Create: `src/Burrfish.Domain/Conversations/LeadDraft.cs`
+- Create: `src/Burrfish.Domain/Conversations/ConversationTransitionResult.cs`
+- Create: `tests/Burrfish.Domain.Tests/Conversations/ConversationTests.cs`
 
 **Интерфейсы:**
 - Consumes: системный `DateTimeOffset`.
@@ -174,7 +183,7 @@ git diff --check
 - [ ] **Step 2: запустить узкий тест**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~ConversationTests
+dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj --filter FullyQualifiedName~ConversationTests
 ```
 
 Ожидается `FAIL` из-за отсутствующих типов.
@@ -182,7 +191,7 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQ
 - [ ] **Step 3: реализовать минимальную модель**
 
 ```csharp
-namespace Burrfish.App.Features.Conversations;
+namespace Burrfish.Domain.Conversations;
 
 /// <summary>Состояние автоматической обработки диалога.</summary>
 public enum ConversationState
@@ -203,8 +212,8 @@ public sealed record ConversationTransitionResult(bool Succeeded, string? ErrorC
 - [ ] **Step 4: пройти тест и все unit-тесты**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~ConversationTests
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
+dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj --filter FullyQualifiedName~ConversationTests
+dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj
 ```
 
 ---
@@ -216,16 +225,18 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
 **Результат:** входящее событие сохраняется один раз, а изменение диалога и исходящее задание могут фиксироваться атомарно.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Infrastructure/Persistence/BurrfishDbContext.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/Entities/InboxEvent.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/Entities/OutboxMessage.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/Entities/ConversationEntity.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/Entities/LeadEntity.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/InboxWriter.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/IConversationRepository.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/IOutboxWriter.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/ILeadRepository.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/Migrations/<timestamp>_Initial.cs`
+- Create: `src/Burrfish.Application/Persistence/InboxEnvelope.cs`
+- Create: `src/Burrfish.Application/Persistence/IInboxWriter.cs`
+- Create: `src/Burrfish.Application/Persistence/IConversationRepository.cs`
+- Create: `src/Burrfish.Application/Persistence/IOutboxWriter.cs`
+- Create: `src/Burrfish.Application/Persistence/ILeadRepository.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/BurrfishDbContext.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Entities/InboxEvent.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Entities/OutboxMessage.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Entities/ConversationEntity.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Entities/LeadEntity.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/InboxWriter.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Migrations/<timestamp>_Initial.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/PostgresFixture.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/InboxWriterTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/AtomicPersistenceTests.cs`
@@ -283,13 +294,13 @@ dotnet test .\Burrfish.slnx
 **Результат:** приложение проходит webhook verification, отклоняет неверную подпись и надёжно сохраняет поддерживаемые события до ответа `200`.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/Instagram/InstagramWebhookEndpoints.cs`
-- Create: `src/Burrfish.App/Features/Instagram/MetaSignatureVerifier.cs`
-- Create: `src/Burrfish.App/Features/Instagram/MetaEventIdentity.cs`
-- Create: `tests/Burrfish.ContractTests/Instagram/Fixtures/text-message.json`
-- Create: `tests/Burrfish.ContractTests/Instagram/InstagramWebhookVerificationTests.cs`
-- Create: `tests/Burrfish.ContractTests/Instagram/InstagramWebhookSignatureTests.cs`
-- Create: `tests/Burrfish.ContractTests/Instagram/InstagramWebhookPersistenceTests.cs`
+- Create: `src/Burrfish.Api/Endpoints/InstagramWebhookEndpoints.cs`
+- Create: `src/Burrfish.Infrastructure/Instagram/MetaSignatureVerifier.cs`
+- Create: `src/Burrfish.Infrastructure/Instagram/MetaEventIdentity.cs`
+- Create: `tests/Burrfish.ApiContract.Tests/Instagram/Fixtures/text-message.json`
+- Create: `tests/Burrfish.ApiContract.Tests/Instagram/InstagramWebhookVerificationTests.cs`
+- Create: `tests/Burrfish.ApiContract.Tests/Instagram/InstagramWebhookSignatureTests.cs`
+- Create: `tests/Burrfish.ApiContract.Tests/Instagram/InstagramWebhookPersistenceTests.cs`
 
 **Интерфейсы:**
 - Consumes: `InstagramOptions`, `IInboxWriter`.
@@ -302,7 +313,7 @@ dotnet test .\Burrfish.slnx
 - [ ] **Step 2: запустить самый узкий тест**
 
 ```powershell
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~InstagramWebhookVerificationTests
+dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~InstagramWebhookVerificationTests
 ```
 
 - [ ] **Step 3: реализовать endpoint без ожидания бизнес-обработки**
@@ -319,8 +330,8 @@ app.MapPost("/webhooks/instagram", InstagramWebhookEndpoints.Receive);
 - [ ] **Step 4: пройти контрактные тесты**
 
 ```powershell
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~InstagramWebhook
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj
+dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~InstagramWebhook
+dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj
 ```
 
 ---
@@ -330,17 +341,17 @@ dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj
 **Результат:** поддерживаемое текстовое событие превращается в внутреннее сообщение и обрабатывается один раз; неподдерживаемые события завершаются без ответа.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/Instagram/IncomingInstagramMessage.cs`
-- Create: `src/Burrfish.App/Features/Instagram/InstagramEventNormalizer.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/InboxProcessor.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/InboxWorker.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/IIncomingMessageHandler.cs`
-- Create: `tests/Burrfish.UnitTests/Instagram/InstagramEventNormalizerTests.cs`
+- Create: `src/Burrfish.Application/Instagram/IncomingInstagramMessage.cs`
+- Create: `src/Burrfish.Application/Instagram/ProcessIncomingMessageCommand.cs`
+- Create: `src/Burrfish.Infrastructure/Instagram/InstagramEventNormalizer.cs`
+- Create: `src/Burrfish.Infrastructure/Processing/InboxProcessor.cs`
+- Create: `src/Burrfish.Infrastructure/Processing/InboxWorker.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/Instagram/InstagramEventNormalizerTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Processing/InboxProcessorTests.cs`
 
 **Интерфейсы:**
 - Consumes: pending `InboxEvent`, fixture из Task 4.
-- Produces: `IncomingInstagramMessage? Normalize(string payload)` и `IIncomingMessageHandler.HandleAsync`.
+- Produces: `IncomingInstagramMessage? Normalize(string payload)` и `ProcessIncomingMessageCommand`, отправляемую worker через `ISender`.
 
 - [ ] **Step 1: написать тесты normalizer**
 
@@ -366,12 +377,12 @@ public sealed record IncomingInstagramMessage(
 - [ ] **Step 2: запустить узкий unit-тест и реализовать normalizer**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~InstagramEventNormalizerTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~InstagramEventNormalizerTests
 ```
 
 - [ ] **Step 3: написать и реализовать интеграционный цикл worker**
 
-Worker атомарно забирает доступное событие, вызывает handler, отмечает `Processed`; ожидаемая ошибка normalizer отмечает `Ignored`; временная ошибка оставляет событие для retry с `NextAttemptAt`.
+Worker атомарно забирает доступное событие, отправляет `ProcessIncomingMessageCommand` через `ISender`, отмечает `Processed`; ожидаемая ошибка normalizer отмечает `Ignored`; временная ошибка оставляет событие для retry с `NextAttemptAt`.
 
 - [ ] **Step 4: проверить отсутствие двойной обработки**
 
@@ -386,13 +397,13 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 **Результат:** OpenAI возвращает только валидированное структурированное решение: известное намерение, уточняющий вопрос или сформулированную потребность.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Infrastructure/OpenAI/AiDialogDecision.cs`
-- Create: `src/Burrfish.App/Infrastructure/OpenAI/AiDialogRequest.cs`
-- Create: `src/Burrfish.App/Infrastructure/OpenAI/IAiDialogClient.cs`
-- Create: `src/Burrfish.App/Infrastructure/OpenAI/OpenAiDialogClient.cs`
-- Create: `src/Burrfish.App/Infrastructure/OpenAI/OpenAiResponseValidator.cs`
-- Create: `tests/Burrfish.UnitTests/OpenAI/OpenAiResponseValidatorTests.cs`
-- Create: `tests/Burrfish.ContractTests/OpenAI/OpenAiDialogClientTests.cs`
+- Create: `src/Burrfish.Application/OpenAI/AiDialogDecision.cs`
+- Create: `src/Burrfish.Application/OpenAI/AiDialogRequest.cs`
+- Create: `src/Burrfish.Application/OpenAI/IAiDialogClient.cs`
+- Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiDialogClient.cs`
+- Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiResponseValidator.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiResponseValidatorTests.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiDialogClientTests.cs`
 
 **Интерфейсы:**
 - Consumes: `OpenAiOptions`, текст и ограниченную историю диалога.
@@ -423,7 +434,7 @@ public sealed record AiDialogDecision(AiDialogDecisionKind Kind, string? Text);
 - [ ] **Step 3: запустить узкий тест и реализовать validator**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~OpenAiResponseValidatorTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiResponseValidatorTests
 ```
 
 - [ ] **Step 4: реализовать HTTP-клиент и контрактные тесты через подменный handler**
@@ -433,8 +444,8 @@ System prompt отделяет инструкции от недоверенно�
 - [ ] **Step 5: пройти OpenAI-тесты**
 
 ```powershell
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~OpenAiDialogClientTests
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiDialogClientTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj
 ```
 
 ---
@@ -444,16 +455,18 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
 **Результат:** входящее сообщение приводит к одному детерминированному исходу: шаблон, уточнение, предложение передачи, подтверждение, отказ или отсутствие ответа.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/LeadQualification/IncomingMessageHandler.cs`
-- Create: `src/Burrfish.App/Features/LeadQualification/ConfirmationClassifier.cs`
-- Create: `src/Burrfish.App/Features/LeadQualification/DialogReply.cs`
-- Create: `src/Burrfish.App/Features/LeadQualification/DialogTemplates.cs`
-- Create: `tests/Burrfish.UnitTests/LeadQualification/IncomingMessageHandlerTests.cs`
-- Create: `tests/Burrfish.UnitTests/LeadQualification/ConfirmationClassifierTests.cs`
+- Create: `src/Burrfish.Application/LeadQualification/ProcessIncomingMessageCommandHandler.cs`
+- Create: `src/Burrfish.Application/LeadQualification/ConfirmationClassifier.cs`
+- Create: `src/Burrfish.Application/LeadQualification/DialogReply.cs`
+- Create: `src/Burrfish.Application/LeadQualification/DialogTemplates.cs`
+- Create: `src/Burrfish.Application/LeadQualification/IDialogTemplateProvider.cs`
+- Create: `src/Burrfish.Infrastructure/LeadQualification/ConfiguredDialogTemplateProvider.cs`
+- Create: `tests/Burrfish.Application.Tests/LeadQualification/ProcessIncomingMessageCommandHandlerTests.cs`
+- Create: `tests/Burrfish.Application.Tests/LeadQualification/ConfirmationClassifierTests.cs`
 
 **Интерфейсы:**
-- Consumes: `Conversation`, `IAiDialogClient`, `DialogOptions`, `IConversationRepository`, `IOutboxWriter`, `ILeadRepository`.
-- Produces: реализацию `IIncomingMessageHandler` из Task 5 и `DialogReply?`.
+- Consumes: `Conversation`, `IAiDialogClient`, `IDialogTemplateProvider`, `IConversationRepository`, `IOutboxWriter`, `ILeadRepository`. Infrastructure преобразует `DialogOptions` в `DialogTemplates`, поэтому Application не зависит от конфигурационных типов внешнего слоя.
+- Produces: MediatR handler `ProcessIncomingMessageCommandHandler` и `DialogReply?`.
 
 - [ ] **Step 1: написать таблицу unit-сценариев**
 
@@ -462,7 +475,7 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
 - [ ] **Step 2: запустить узкий тест**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~IncomingMessageHandlerTests
+dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj --filter FullyQualifiedName~ProcessIncomingMessageCommandHandlerTests
 ```
 
 - [ ] **Step 3: реализовать orchestration без сетевых деталей**
@@ -479,8 +492,8 @@ public sealed record DialogReply(string? Text, LeadDraft? Lead);
 - [ ] **Step 4: пройти unit-набор**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~LeadQualification
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
+dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj --filter FullyQualifiedName~LeadQualification
+dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj
 ```
 
 ---
@@ -490,13 +503,13 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
 **Результат:** каждый логический ответ становится одним outbox-заданием и безопасно повторяется при временной ошибке Meta.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/Instagram/IInstagramMessageSender.cs`
-- Create: `src/Burrfish.App/Features/Instagram/InstagramReply.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/DeliveryResult.cs`
-- Create: `src/Burrfish.App/Features/Instagram/InstagramGraphApiClient.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/OutboxDispatcher.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/OutboxWorker.cs`
-- Create: `tests/Burrfish.ContractTests/Instagram/InstagramGraphApiClientTests.cs`
+- Create: `src/Burrfish.Application/Instagram/IInstagramMessageSender.cs`
+- Create: `src/Burrfish.Application/Instagram/InstagramReply.cs`
+- Create: `src/Burrfish.Application/Processing/DeliveryResult.cs`
+- Create: `src/Burrfish.Infrastructure/Instagram/InstagramGraphApiClient.cs`
+- Create: `src/Burrfish.Infrastructure/Processing/OutboxDispatcher.cs`
+- Create: `src/Burrfish.Infrastructure/Processing/OutboxWorker.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/Instagram/InstagramGraphApiClientTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Processing/OutboxDispatcherTests.cs`
 
 **Интерфейсы:**
@@ -510,7 +523,7 @@ dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj
 - [ ] **Step 2: реализовать sender после падающего теста**
 
 ```powershell
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~InstagramGraphApiClientTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~InstagramGraphApiClientTests
 ```
 
 - [ ] **Step 3: написать интеграционный тест dispatcher**
@@ -520,7 +533,7 @@ dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filte
 - [ ] **Step 4: пройти contract и integration проверки**
 
 ```powershell
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~Instagram
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~Instagram
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~OutboxDispatcherTests
 ```
 
@@ -531,19 +544,23 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 **Результат:** подтверждение сохраняет ровно одну заявку, переводит диалог в `OperatorHandoff` и создаёт одно Telegram-задание; Telegram outage не теряет заявку.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Features/LeadQualification/LeadService.cs`
-- Create: `src/Burrfish.App/Infrastructure/Telegram/ITelegramNotifier.cs`
-- Create: `src/Burrfish.App/Infrastructure/Telegram/LeadNotification.cs`
-- Create: `src/Burrfish.App/Infrastructure/Telegram/NotificationResult.cs`
-- Create: `src/Burrfish.App/Infrastructure/Telegram/TelegramNotifier.cs`
-- Create: `src/Burrfish.App/Infrastructure/Telegram/TelegramLeadMessageFormatter.cs`
-- Create: `tests/Burrfish.UnitTests/Telegram/TelegramLeadMessageFormatterTests.cs`
-- Create: `tests/Burrfish.ContractTests/Telegram/TelegramNotifierTests.cs`
-- Create: `tests/Burrfish.IntegrationTests/LeadQualification/LeadServiceTests.cs`
+- Create: `src/Burrfish.Application/LeadQualification/CreateLeadCommand.cs`
+- Create: `src/Burrfish.Application/LeadQualification/CreateLeadCommandHandler.cs`
+- Create: `src/Burrfish.Domain/Leads/Lead.cs`
+- Create: `src/Burrfish.Domain/Leads/LeadId.cs`
+- Create: `src/Burrfish.Application/Telegram/ITelegramNotifier.cs`
+- Create: `src/Burrfish.Application/Telegram/LeadNotification.cs`
+- Create: `src/Burrfish.Application/Telegram/NotificationResult.cs`
+- Create: `src/Burrfish.Infrastructure/Telegram/TelegramNotifier.cs`
+- Create: `src/Burrfish.Infrastructure/Telegram/TelegramLeadMessageFormatter.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/Telegram/TelegramLeadMessageFormatterTests.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/Telegram/TelegramNotifierTests.cs`
+- Create: `tests/Burrfish.Domain.Tests/Leads/LeadTests.cs`
+- Create: `tests/Burrfish.IntegrationTests/LeadQualification/CreateLeadCommandHandlerTests.cs`
 
 **Интерфейсы:**
 - Consumes: `LeadDraft`, `TelegramOptions`, outbox dispatcher из Task 8.
-- Produces: `LeadService.CreateAsync`, `ITelegramNotifier.SendLeadAsync` и тип outbox `telegram.lead-created.v1`.
+- Produces: `CreateLeadCommandHandler`, `ITelegramNotifier.SendLeadAsync` и тип outbox `telegram.lead-created.v1`.
 
 - [ ] **Step 1: написать форматтер-тесты**
 
@@ -567,9 +584,9 @@ public interface ITelegramNotifier
 - [ ] **Step 4: пройти проверки от узких к широким**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~TelegramLeadMessageFormatterTests
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~TelegramNotifierTests
-dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~LeadServiceTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~TelegramLeadMessageFormatterTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~TelegramNotifierTests
+dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~CreateLeadCommandHandlerTests
 ```
 
 ---
@@ -579,14 +596,14 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 **Результат:** данные старше 30 календарных дней удаляются, состояние worker наблюдаемо, а журналы и метрики не раскрывают сообщения и секреты.
 
 **Файлы:**
-- Create: `src/Burrfish.App/Infrastructure/Time/IClock.cs`
-- Create: `src/Burrfish.App/Infrastructure/Time/SystemClock.cs`
-- Create: `src/Burrfish.App/Infrastructure/Persistence/DataRetentionService.cs`
-- Create: `src/Burrfish.App/Infrastructure/Processing/WorkerHeartbeat.cs`
-- Create: `src/Burrfish.App/Configuration/HealthRegistration.cs`
+- Create: `src/Burrfish.Application/Common/IClock.cs`
+- Create: `src/Burrfish.Infrastructure/Time/SystemClock.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/DataRetentionService.cs`
+- Create: `src/Burrfish.Infrastructure/Processing/WorkerHeartbeat.cs`
+- Create: `src/Burrfish.Api/Configuration/HealthRegistration.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/DataRetentionServiceTests.cs`
-- Create: `tests/Burrfish.ContractTests/Health/HealthEndpointTests.cs`
-- Create: `tests/Burrfish.UnitTests/Logging/SensitiveLoggingTests.cs`
+- Create: `tests/Burrfish.ApiContract.Tests/Health/HealthEndpointTests.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/Logging/SensitiveLoggingTests.cs`
 
 **Интерфейсы:**
 - Consumes: все timestamped entities и worker statuses.
@@ -613,8 +630,8 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 - [ ] **Step 5: пройти relevant-набор**
 
 ```powershell
-dotnet test .\tests\Burrfish.UnitTests\Burrfish.UnitTests.csproj --filter FullyQualifiedName~SensitiveLoggingTests
-dotnet test .\tests\Burrfish.ContractTests\Burrfish.ContractTests.csproj --filter FullyQualifiedName~HealthEndpointTests
+dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~SensitiveLoggingTests
+dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~HealthEndpointTests
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~DataRetentionServiceTests
 ```
 
@@ -632,7 +649,7 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 - Create: `.env.example`
 - Create: `README.md`
 - Create: `tests/Burrfish.IntegrationTests/EndToEnd/LeadFlowTests.cs`
-- Modify: `src/Burrfish.App/Program.cs`
+- Modify: `src/Burrfish.Api/Program.cs`
 
 **Интерфейсы:**
 - Consumes: все функции Tasks 1–10.
