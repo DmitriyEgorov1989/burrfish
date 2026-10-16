@@ -230,32 +230,45 @@ dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj
 
 ### Task 3: Добавить PostgreSQL, inbox/outbox и дедупликацию
 
-**Перед началом:** получить разрешение на создание первой EF migration и согласовать версии EF Core, Npgsql и Testcontainers.
+**Согласовано:** первая EF migration; `Microsoft.EntityFrameworkCore 10.0.13`, `Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3`, `Npgsql 10.0.3`, `Testcontainers.PostgreSql 4.16.0` и локальный `dotnet-ef 10.0.13`; применение migration разрешено только к изолированному тестовому PostgreSQL-контейнеру.
 
 **Результат:** входящее событие сохраняется один раз, а изменение диалога и исходящее задание могут фиксироваться атомарно.
 
 **Файлы:**
 - Create: `src/Burrfish.Application/Persistence/InboxEnvelope.cs`
 - Create: `src/Burrfish.Application/Persistence/IInboxWriter.cs`
+- Create: `src/Burrfish.Application/Persistence/StoredConversation.cs`
 - Create: `src/Burrfish.Application/Persistence/IConversationRepository.cs`
+- Create: `src/Burrfish.Application/Persistence/OutboxEnvelope.cs`
 - Create: `src/Burrfish.Application/Persistence/IOutboxWriter.cs`
 - Create: `src/Burrfish.Application/Persistence/ILeadRepository.cs`
+- Create: `src/Burrfish.Application/Persistence/IConversationPersistence.cs`
+- Create: `src/Burrfish.Application/Persistence/PersistenceCommitResult.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/DatabaseOptions.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/BurrfishDbContext.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/BurrfishDbContextFactory.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/Entities/InboxEvent.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/Entities/OutboxMessage.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/Entities/ConversationEntity.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/Entities/LeadEntity.cs`
 - Create: `src/Burrfish.Infrastructure/Persistence/InboxWriter.cs`
-- Create: `src/Burrfish.Infrastructure/Persistence/Migrations/<timestamp>_Initial.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/ConversationRepository.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/LeadRepository.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/OutboxWriter.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/ConversationPersistence.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Migrations/20261016102146_Initial.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/PostgresFixture.cs`
+- Create: `tests/Burrfish.IntegrationTests/Persistence/MigrationTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/InboxWriterTests.cs`
+- Create: `tests/Burrfish.IntegrationTests/Persistence/ConversationRepositoryTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Persistence/AtomicPersistenceTests.cs`
+- Create: `tests/Burrfish.IntegrationTests/Persistence/PersistenceConcurrencyTests.cs`
 
 **Интерфейсы:**
-- Consumes: `ConversationState`, `LeadDraft` из Task 2.
-- Produces: `IInboxWriter.TryStoreAsync(InboxEnvelope, CancellationToken)`, `IConversationRepository`, `IOutboxWriter`, `ILeadRepository`, `BurrfishDbContext`, таблицы `inbox_events`, `outbox_messages`, `conversations`, `leads`.
+- Consumes: `Conversation`, `ConversationState`, `LeadDraft` из Task 2; `Database__ConnectionString` из среды выполнения.
+- Produces: `IInboxWriter.TryStoreAsync(InboxEnvelope, CancellationToken)`, `IConversationRepository.FindAsync`, `IConversationRepository.Add`, `IOutboxWriter.Add`, `ILeadRepository.Add`, `IConversationPersistence.CommitAsync`, `BurrfishDbContext`, таблицы `inbox_events`, `outbox_messages`, `conversations`, `leads`.
 
-- [ ] **Step 1: определить входной контракт**
+- [x] **Step 1: определить входной контракт**
 
 ```csharp
 /// <summary>Событие внешней платформы до бизнес-обработки.</summary>
@@ -272,11 +285,11 @@ public interface IInboxWriter
 }
 ```
 
-- [ ] **Step 2: написать интеграционные тесты**
+- [x] **Step 2: написать интеграционные тесты**
 
-Первый insert одного `ExternalEventId` возвращает `true`; второй возвращает `false`; параллельные inserts оставляют одну строку; rollback не сохраняет ни заявку, ни outbox; commit сохраняет заявку, `OperatorHandoff` и Telegram outbox вместе.
+Первый insert одного `ExternalEventId` возвращает `true`; второй возвращает `false`; восемь параллельных inserts оставляют одну строку; rollback не сохраняет ни заявку, ни outbox; commit сохраняет заявку, `OperatorHandoff` и Telegram outbox вместе. Отдельные тесты проверяют roundtrip агрегата, unique conflict и `xmin` concurrency conflict.
 
-- [ ] **Step 3: запустить узкий тест с Docker**
+- [x] **Step 3: запустить узкий тест с Docker**
 
 ```powershell
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~InboxWriterTests
@@ -284,11 +297,11 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 
 Ожидается `FAIL`; для выполнения нужен доступный Docker daemon.
 
-- [ ] **Step 4: реализовать schema и migration**
+- [x] **Step 4: реализовать schema и migration**
 
-Установить unique index на `inbox_events.external_event_id`, индексы pending/status для inbox/outbox и concurrency token на изменяемых заданиях. Payload и тексты сообщений не выводить в лог при конфликте.
+Установлены unique index на `inbox_events.external_event_id`, индексы pending/status для inbox/outbox и `xmin` concurrency token на изменяемых записях. `Conversation` отображается как обязательный owned-агрегат, поэтому его private setters сохраняются без обхода доменных переходов. Payload и тексты сообщений не выводятся в лог при конфликте.
 
-- [ ] **Step 5: пройти узкие и проектные тесты**
+- [x] **Step 5: пройти узкие и проектные тесты**
 
 ```powershell
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~Persistence

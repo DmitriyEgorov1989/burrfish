@@ -1,8 +1,11 @@
+using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace Burrfish.Infrastructure.Tests.Configuration;
 
@@ -18,6 +21,12 @@ public sealed class OptionsValidationTests
         { "OpenAI:Model", null, nameof(OpenAiOptions.Model) },
         { "Telegram:BotToken", null, nameof(TelegramOptions.BotToken) },
         { "Telegram:ChatId", null, nameof(TelegramOptions.ChatId) },
+        { "Database:ConnectionString", null, nameof(DatabaseOptions.ConnectionString) },
+        {
+            "Database:ConnectionString",
+            "not-a-connection-string",
+            nameof(DatabaseOptions.ConnectionString)
+        },
         { "Dialog:RetentionDays", "0", nameof(DialogOptions.RetentionDays) },
         { "Dialog:PriceExamples:0", null, nameof(DialogOptions.PriceExamples) },
         { "Dialog:ServicesExamples:0", null, nameof(DialogOptions.ServicesExamples) },
@@ -48,6 +57,20 @@ public sealed class OptionsValidationTests
         await host.StopAsync(CancellationToken.None);
     }
 
+    [Fact]
+    public void Valid_configuration_registers_scoped_persistence_services()
+    {
+        using var host = CreateHost(ValidSettings());
+        using var scope = host.Services.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<BurrfishDbContext>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IInboxWriter>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConversationRepository>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ILeadRepository>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IOutboxWriter>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConversationPersistence>());
+    }
+
     [Theory]
     [MemberData(nameof(InvalidSettings))]
     public async Task Invalid_configuration_stops_host_without_exposing_value(
@@ -68,7 +91,8 @@ public sealed class OptionsValidationTests
             or "Instagram:VerifyToken"
             or "Instagram:AccessToken"
             or "OpenAI:ApiKey"
-            or "Telegram:BotToken";
+            or "Telegram:BotToken"
+            or "Database:ConnectionString";
         if (isSensitive && !string.IsNullOrEmpty(sensitiveValue))
         {
             Assert.DoesNotContain(sensitiveValue, exception.Message, StringComparison.Ordinal);
@@ -95,6 +119,10 @@ public sealed class OptionsValidationTests
         ["OpenAI:Model"] = "gpt-4.1-mini",
         ["Telegram:BotToken"] = "telegram-bot-token-value",
         ["Telegram:ChatId"] = "-1001234567890",
+        ["Database:ConnectionString"] = new NpgsqlConnectionStringBuilder
+        {
+            Host = "localhost"
+        }.ConnectionString,
         ["Dialog:RetentionDays"] = "30",
         ["Dialog:PriceExamples:0"] = "Сколько стоит?",
         ["Dialog:ServicesExamples:0"] = "Какие услуги вы оказываете?",

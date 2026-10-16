@@ -1,7 +1,11 @@
+using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace Burrfish.Infrastructure;
 
@@ -16,6 +20,14 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddOptions<DatabaseOptions>()
+            .Bind(configuration.GetSection(DatabaseOptions.SectionName))
+            .ValidateRequired(options => options.ConnectionString, nameof(DatabaseOptions.ConnectionString))
+            .Validate(
+                options => IsValidConnectionString(options.ConnectionString),
+                $"{nameof(DatabaseOptions.ConnectionString)} is invalid.")
+            .ValidateOnStart();
+
         services.AddOptions<InstagramOptions>()
             .Bind(configuration.GetSection(InstagramOptions.SectionName))
             .ValidateRequired(options => options.AccountId, nameof(InstagramOptions.AccountId))
@@ -23,6 +35,18 @@ public static class DependencyInjection
             .ValidateRequired(options => options.VerifyToken, nameof(InstagramOptions.VerifyToken))
             .ValidateRequired(options => options.AccessToken, nameof(InstagramOptions.AccessToken))
             .ValidateOnStart();
+
+        services.AddDbContext<BurrfishDbContext>((provider, options) =>
+        {
+            var database = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            options.UseNpgsql(database.ConnectionString);
+            options.EnableSensitiveDataLogging(false);
+        });
+        services.AddScoped<IInboxWriter, InboxWriter>();
+        services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<ILeadRepository, LeadRepository>();
+        services.AddScoped<IOutboxWriter, OutboxWriter>();
+        services.AddScoped<IConversationPersistence, ConversationPersistence>();
 
         services.AddOptions<OpenAiOptions>()
             .Bind(configuration.GetSection(OpenAiOptions.SectionName))
@@ -78,4 +102,22 @@ public static class DependencyInjection
             options => selector(options) is { Length: > 0 } examples
                 && examples.All(example => !string.IsNullOrWhiteSpace(example)),
             $"{propertyName} must contain at least one non-empty example.");
+
+    private static bool IsValidConnectionString(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = new NpgsqlConnectionStringBuilder(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
 }
