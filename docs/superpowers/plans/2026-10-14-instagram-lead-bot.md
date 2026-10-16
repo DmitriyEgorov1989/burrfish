@@ -170,17 +170,18 @@ git diff --check
 - Create: `src/Burrfish.Domain/Conversations/Conversation.cs`
 - Create: `src/Burrfish.Domain/Conversations/LeadDraft.cs`
 - Create: `src/Burrfish.Domain/Conversations/ConversationTransitionResult.cs`
+- Create: `src/Burrfish.Domain/Conversations/HandoffConfirmationResult.cs`
 - Create: `tests/Burrfish.Domain.Tests/Conversations/ConversationTests.cs`
 
 **Интерфейсы:**
-- Consumes: системный `DateTimeOffset`.
-- Produces: `Conversation.Start`, `Conversation.ProposeHandoff`, `Conversation.ConfirmHandoff`, `Conversation.DeclineHandoff`, `Conversation.CanReply`.
+- Consumes: системный `DateTimeOffset` с нормализацией времени подтверждения в UTC.
+- Produces: `Conversation.Start()`, `Conversation.ProposeHandoff(string?)`, `Conversation.ConfirmHandoff(DateTimeOffset)`, `Conversation.DeclineHandoff()`, `Conversation.CanReply`; `LeadDraft.Need`, `LeadDraft.CreatedAt`; `ConversationTransitionResult`, `HandoffConfirmationResult`.
 
-- [ ] **Step 1: написать тесты переходов**
+- [x] **Step 1: написать тесты переходов**
 
 Покрыть: новое состояние `BotActive`; предложение передачи сохраняет непустую потребность и переводит в `AwaitingHandoffConfirmation`; подтверждение возвращает `LeadDraft` и переводит в `OperatorHandoff`; отказ возвращает `BotActive`; подтверждение из неверного состояния является ожидаемой доменной ошибкой без исключения; `CanReply == false` после передачи.
 
-- [ ] **Step 2: запустить узкий тест**
+- [x] **Step 2: запустить узкий тест**
 
 ```powershell
 dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj --filter FullyQualifiedName~ConversationTests
@@ -188,7 +189,7 @@ dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj --filter 
 
 Ожидается `FAIL` из-за отсутствующих типов.
 
-- [ ] **Step 3: реализовать минимальную модель**
+- [x] **Step 3: реализовать минимальную модель**
 
 ```csharp
 namespace Burrfish.Domain.Conversations;
@@ -205,11 +206,20 @@ public enum ConversationState
 /// <param name="Succeeded">Признак выполненного перехода.</param>
 /// <param name="ErrorCode">Код ожидаемой ошибки; <see langword="null"/>, если переход выполнен.</param>
 public sealed record ConversationTransitionResult(bool Succeeded, string? ErrorCode);
+
+/// <summary>Результат подтверждения передачи диалога менеджеру.</summary>
+/// <param name="Succeeded">Признак выполненной передачи.</param>
+/// <param name="ErrorCode">Код ожидаемой ошибки; <see langword="null"/> при успехе.</param>
+/// <param name="Lead">Черновик заявки; <see langword="null"/>, если переход отклонён.</param>
+public sealed record HandoffConfirmationResult(
+    bool Succeeded,
+    string? ErrorCode,
+    LeadDraft? Lead);
 ```
 
-`ConfirmHandoff` возвращает отдельный result с `LeadDraft?`; значение равно `null`, если переход отклонён.
+`ConfirmHandoff` возвращает `HandoffConfirmationResult`; `Lead` равен `null`, если переход отклонён. `LeadDraft` содержит подтверждённую потребность `Need` и нормализованный момент подтверждения `CreatedAt` в UTC.
 
-- [ ] **Step 4: пройти тест и все unit-тесты**
+- [x] **Step 4: пройти тест и все unit-тесты**
 
 ```powershell
 dotnet test .\tests\Burrfish.Domain.Tests\Burrfish.Domain.Tests.csproj --filter FullyQualifiedName~ConversationTests
