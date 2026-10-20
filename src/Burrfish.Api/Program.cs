@@ -1,10 +1,12 @@
 using Burrfish.Api.Endpoints;
 using Burrfish.Application;
 using Burrfish.Infrastructure;
+using Burrfish.Infrastructure.Processing;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHostedService<InboxWorker>();
 
 var app = builder.Build();
 app.MapGet("/webhooks/instagram", InstagramWebhookEndpoints.Verify);

@@ -366,17 +366,20 @@ dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj
 **Файлы:**
 - Create: `src/Burrfish.Application/Instagram/IncomingInstagramMessage.cs`
 - Create: `src/Burrfish.Application/Instagram/ProcessIncomingMessageCommand.cs`
+- Create: `src/Burrfish.Application/Instagram/ProcessIncomingMessageResult.cs`
 - Create: `src/Burrfish.Infrastructure/Instagram/InstagramEventNormalizer.cs`
+- Create: `src/Burrfish.Infrastructure/Configuration/InboxProcessingOptions.cs`
 - Create: `src/Burrfish.Infrastructure/Processing/InboxProcessor.cs`
 - Create: `src/Burrfish.Infrastructure/Processing/InboxWorker.cs`
+- Create: `src/Burrfish.Infrastructure/Persistence/Migrations/20261020113759_AddIgnoredInboxStatus.cs`
 - Create: `tests/Burrfish.Infrastructure.Tests/Instagram/InstagramEventNormalizerTests.cs`
 - Create: `tests/Burrfish.IntegrationTests/Processing/InboxProcessorTests.cs`
 
 **Интерфейсы:**
 - Consumes: pending `InboxEvent`, fixture из Task 4.
-- Produces: `IncomingInstagramMessage? Normalize(string payload)` и `ProcessIncomingMessageCommand`, отправляемую worker через `ISender`.
+- Produces: `IncomingInstagramMessage? Normalize(string payload)` и `ProcessIncomingMessageCommand`, возвращающую `ProcessIncomingMessageResult` через `ISender`. Worker остаётся выключенным до регистрации handler в Task 7.
 
-- [ ] **Step 1: написать тесты normalizer**
+- [x] **Step 1: написать тесты normalizer**
 
 ```csharp
 /// <summary>Нормализованное текстовое сообщение Instagram.</summary>
@@ -397,17 +400,17 @@ public sealed record IncomingInstagramMessage(
 
 Проверить текст, отсутствующий username, echo/исходящее сообщение, вложение без текста, неизвестный event type и malformed JSON.
 
-- [ ] **Step 2: запустить узкий unit-тест и реализовать normalizer**
+- [x] **Step 2: запустить узкий unit-тест и реализовать normalizer**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~InstagramEventNormalizerTests
 ```
 
-- [ ] **Step 3: написать и реализовать интеграционный цикл worker**
+- [x] **Step 3: написать и реализовать интеграционный цикл worker**
 
-Worker атомарно забирает доступное событие, отправляет `ProcessIncomingMessageCommand` через `ISender`, отмечает `Processed`; ожидаемая ошибка normalizer отмечает `Ignored`; временная ошибка оставляет событие для retry с `NextAttemptAt`.
+Worker удерживает PostgreSQL-блокировку `FOR UPDATE SKIP LOCKED` до фиксации транзакции, отправляет `ProcessIncomingMessageCommand` через `ISender`, отмечает успех как `Processed`, неподдерживаемое событие как `Ignored`, а временную ошибку возвращает в `Pending` с `NextAttemptAt`. При retry savepoint откатывает прикладные изменения. Worker выключен по умолчанию до Task 7.
 
-- [ ] **Step 4: проверить отсутствие двойной обработки**
+- [x] **Step 4: проверить отсутствие двойной обработки**
 
 ```powershell
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~InboxProcessorTests
@@ -489,7 +492,7 @@ dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.
 
 **Интерфейсы:**
 - Consumes: `Conversation`, `IAiDialogClient`, `IDialogTemplateProvider`, `IConversationRepository`, `IOutboxWriter`, `ILeadRepository`. Infrastructure преобразует `DialogOptions` в `DialogTemplates`, поэтому Application не зависит от конфигурационных типов внешнего слоя.
-- Produces: MediatR handler `ProcessIncomingMessageCommandHandler` и `DialogReply?`.
+- Produces: MediatR handler `ProcessIncomingMessageCommandHandler`, который возвращает `ProcessIncomingMessageResult`, и внутренний `DialogReply?`. Task 7 также включает `InboxProcessing:Enabled=true` после регистрации handler.
 
 - [ ] **Step 1: написать таблицу unit-сценариев**
 

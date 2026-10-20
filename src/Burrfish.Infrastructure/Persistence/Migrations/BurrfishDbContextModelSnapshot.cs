@@ -126,7 +126,7 @@ namespace Burrfish.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_inbox_attempt_count", "attempt_count >= 0");
 
-                            t.HasCheckConstraint("ck_inbox_status", "status IN ('Pending', 'Processing', 'Processed', 'Failed')");
+                            t.HasCheckConstraint("ck_inbox_status", "status IN ('Pending', 'Processing', 'Processed', 'Failed', 'Ignored')");
                         });
                 });
 

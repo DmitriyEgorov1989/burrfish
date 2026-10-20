@@ -23,4 +23,10 @@
     <ProjectReference Include="..\..\src\Burrfish.Infrastructure\Burrfish.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\Burrfish.ApiContract.Tests\Instagram\Fixtures\text-message.json"
+          Link="Instagram\Fixtures\text-message.json"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

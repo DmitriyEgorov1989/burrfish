@@ -1,3 +1,4 @@
+using Burrfish.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Burrfish.IntegrationTests.Persistence;
@@ -52,5 +53,35 @@ public sealed class MigrationTests(PostgresFixture fixture)
                 "ux_outbox_deduplication_key"
             ],
             indexes);
+    }
+
+    [Fact]
+    public async Task Inbox_status_constraint_accepts_ignored_and_rejects_unknown_status()
+    {
+        await using (var db = fixture.CreateContext())
+        {
+            db.InboxEvents.Add(CreateEvent(InboxEventStatus.Ignored));
+            await db.SaveChangesAsync();
+        }
+
+        await using var invalidDb = fixture.CreateContext();
+        invalidDb.InboxEvents.Add(CreateEvent((InboxEventStatus)999));
+
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => invalidDb.SaveChangesAsync());
+    }
+
+    private static InboxEvent CreateEvent(InboxEventStatus status)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new InboxEvent
+        {
+            Id = Guid.NewGuid(),
+            ExternalEventId = Guid.NewGuid().ToString("N"),
+            Payload = "{}",
+            ReceivedAt = now,
+            Status = status,
+            NextAttemptAt = now
+        };
     }
 }

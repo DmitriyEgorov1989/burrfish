@@ -13,7 +13,7 @@ internal sealed class InboxEventConfiguration : IEntityTypeConfiguration<InboxEv
             table.HasCheckConstraint("ck_inbox_attempt_count", "attempt_count >= 0");
             table.HasCheckConstraint(
                 "ck_inbox_status",
-                "status IN ('Pending', 'Processing', 'Processed', 'Failed')");
+                "status IN ('Pending', 'Processing', 'Processed', 'Failed', 'Ignored')");
         });
 
         builder.HasKey(entity => entity.Id);

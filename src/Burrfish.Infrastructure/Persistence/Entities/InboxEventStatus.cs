@@ -13,5 +13,8 @@ public enum InboxEventStatus
     Processed,
 
     /// <summary>Обработка завершилась окончательной ошибкой.</summary>
-    Failed
+    Failed,
+
+    /// <summary>Неподдерживаемое или некорректное событие завершено без обработки.</summary>
+    Ignored
 }

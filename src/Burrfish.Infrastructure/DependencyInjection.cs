@@ -3,6 +3,7 @@ using Burrfish.Application.Instagram;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.Persistence;
+using Burrfish.Infrastructure.Processing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +52,22 @@ public static class DependencyInjection
         services.AddScoped<IConversationPersistence, ConversationPersistence>();
         services.AddSingleton<IMetaSignatureVerifier, MetaSignatureVerifier>();
         services.AddSingleton<IMetaWebhookParser, MetaWebhookParser>();
+        services.AddSingleton<InstagramEventNormalizer>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<InboxProcessor>();
+
+        services.AddOptions<InboxProcessingOptions>()
+            .Bind(configuration.GetSection(InboxProcessingOptions.SectionName))
+            .Validate(
+                options => options.PollIntervalMilliseconds > 0,
+                $"{nameof(InboxProcessingOptions.PollIntervalMilliseconds)} must be positive.")
+            .Validate(
+                options => options.RetryBaseDelaySeconds > 0,
+                $"{nameof(InboxProcessingOptions.RetryBaseDelaySeconds)} must be positive.")
+            .Validate(
+                options => options.MaxRetryDelaySeconds >= options.RetryBaseDelaySeconds,
+                $"{nameof(InboxProcessingOptions.MaxRetryDelaySeconds)} must not be less than {nameof(InboxProcessingOptions.RetryBaseDelaySeconds)}.")
+            .ValidateOnStart();
 
         services.AddOptions<OpenAiOptions>()
             .Bind(configuration.GetSection(OpenAiOptions.SectionName))

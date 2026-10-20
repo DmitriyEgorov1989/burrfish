@@ -1,7 +1,10 @@
+using Burrfish.Application;
 using Burrfish.Application.Instagram;
 using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.Persistence;
+using Burrfish.Infrastructure.Processing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +32,21 @@ public sealed class OptionsValidationTests
             nameof(DatabaseOptions.ConnectionString)
         },
         { "Dialog:RetentionDays", "0", nameof(DialogOptions.RetentionDays) },
+        {
+            "InboxProcessing:PollIntervalMilliseconds",
+            "0",
+            nameof(InboxProcessingOptions.PollIntervalMilliseconds)
+        },
+        {
+            "InboxProcessing:RetryBaseDelaySeconds",
+            "0",
+            nameof(InboxProcessingOptions.RetryBaseDelaySeconds)
+        },
+        {
+            "InboxProcessing:MaxRetryDelaySeconds",
+            "29",
+            nameof(InboxProcessingOptions.MaxRetryDelaySeconds)
+        },
         { "Dialog:PriceExamples:0", null, nameof(DialogOptions.PriceExamples) },
         { "Dialog:ServicesExamples:0", null, nameof(DialogOptions.ServicesExamples) },
         { "Dialog:PriceResponse", null, nameof(DialogOptions.PriceResponse) },
@@ -72,6 +90,8 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConversationPersistence>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaSignatureVerifier>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaWebhookParser>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<InstagramEventNormalizer>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
     }
 
     [Theory]
@@ -107,6 +127,7 @@ public sealed class OptionsValidationTests
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.Sources.Clear();
         builder.Configuration.AddInMemoryCollection(settings);
+        builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
 
         return builder.Build();
@@ -134,6 +155,10 @@ public sealed class OptionsValidationTests
         ["Dialog:FallbackResponse"] = "Опишите, пожалуйста, вашу задачу.",
         ["Dialog:HandoffOffer"] = "Передать ваш вопрос менеджеру?",
         ["Dialog:HandoffConfirmationPrompt"] = "Передать менеджеру запрос: {need}?",
-        ["Dialog:AmbiguousConfirmationResponse"] = "Ответьте, пожалуйста, да или нет."
+        ["Dialog:AmbiguousConfirmationResponse"] = "Ответьте, пожалуйста, да или нет.",
+        ["InboxProcessing:Enabled"] = "false",
+        ["InboxProcessing:PollIntervalMilliseconds"] = "1000",
+        ["InboxProcessing:RetryBaseDelaySeconds"] = "30",
+        ["InboxProcessing:MaxRetryDelaySeconds"] = "900"
     };
 }
