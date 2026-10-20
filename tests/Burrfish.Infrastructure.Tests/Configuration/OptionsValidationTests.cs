@@ -1,3 +1,4 @@
+using Burrfish.Application.Instagram;
 using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Persistence;
@@ -69,6 +70,8 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ILeadRepository>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IOutboxWriter>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConversationPersistence>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaSignatureVerifier>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaWebhookParser>());
     }
 
     [Theory]

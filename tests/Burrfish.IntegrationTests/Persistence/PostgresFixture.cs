@@ -20,10 +20,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         .WithPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)))
         .Build();
 
+    public string ConnectionString => container.GetConnectionString();
+
     public BurrfishDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<BurrfishDbContext>()
-            .UseNpgsql(container.GetConnectionString())
+            .UseNpgsql(ConnectionString)
             .EnableSensitiveDataLogging(false)
             .Options;
 

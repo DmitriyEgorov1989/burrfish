@@ -1,5 +1,7 @@
 using Burrfish.Application.Persistence;
+using Burrfish.Application.Instagram;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +49,8 @@ public static class DependencyInjection
         services.AddScoped<ILeadRepository, LeadRepository>();
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.AddScoped<IConversationPersistence, ConversationPersistence>();
+        services.AddSingleton<IMetaSignatureVerifier, MetaSignatureVerifier>();
+        services.AddSingleton<IMetaWebhookParser, MetaWebhookParser>();
 
         services.AddOptions<OpenAiOptions>()
             .Bind(configuration.GetSection(OpenAiOptions.SectionName))

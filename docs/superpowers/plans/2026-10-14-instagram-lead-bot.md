@@ -329,17 +329,17 @@ dotnet test .\Burrfish.slnx
 - Consumes: `InstagramOptions`, `IInboxWriter`.
 - Produces: публичные webhook endpoints и `IMetaSignatureVerifier.IsValid(ReadOnlySpan<byte>, string?)`.
 
-- [ ] **Step 1: сохранить обезличенный fixture и написать контрактные тесты**
+- [x] **Step 1: сохранить обезличенный fixture и написать контрактные тесты**
 
 Проверить корректный challenge при совпадении verify token; `403` при несовпадении; `401` при отсутствующей/неверной подписи POST; `200` после сохранения валидного события; повторный webhook также получает `200`, но не создаёт вторую запись.
 
-- [ ] **Step 2: запустить самый узкий тест**
+- [x] **Step 2: запустить самый узкий тест**
 
 ```powershell
 dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~InstagramWebhookVerificationTests
 ```
 
-- [ ] **Step 3: реализовать endpoint без ожидания бизнес-обработки**
+- [x] **Step 3: реализовать endpoint без ожидания бизнес-обработки**
 
 Пример регистрации:
 
@@ -350,7 +350,7 @@ app.MapPost("/webhooks/instagram", InstagramWebhookEndpoints.Receive);
 
 Подпись вычислять по исходным байтам body через HMAC и сравнивать constant-time. Не десериализовать неподтверждённый body и не журналировать его.
 
-- [ ] **Step 4: пройти контрактные тесты**
+- [x] **Step 4: пройти контрактные тесты**
 
 ```powershell
 dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~InstagramWebhook
