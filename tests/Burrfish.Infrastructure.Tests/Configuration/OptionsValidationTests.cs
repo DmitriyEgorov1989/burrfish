@@ -1,5 +1,6 @@
 using Burrfish.Application;
 using Burrfish.Application.Instagram;
+using Burrfish.Application.OpenAI;
 using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
@@ -23,6 +24,8 @@ public sealed class OptionsValidationTests
         { "Instagram:AccessToken", null, nameof(InstagramOptions.AccessToken) },
         { "OpenAI:ApiKey", null, nameof(OpenAiOptions.ApiKey) },
         { "OpenAI:Model", null, nameof(OpenAiOptions.Model) },
+        { "OpenAI:TimeoutSeconds", "0", nameof(OpenAiOptions.TimeoutSeconds) },
+        { "OpenAI:TimeoutSeconds", "61", nameof(OpenAiOptions.TimeoutSeconds) },
         { "Telegram:BotToken", null, nameof(TelegramOptions.BotToken) },
         { "Telegram:ChatId", null, nameof(TelegramOptions.ChatId) },
         { "Database:ConnectionString", null, nameof(DatabaseOptions.ConnectionString) },
@@ -92,6 +95,7 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaWebhookParser>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InstagramEventNormalizer>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAiDialogClient>());
     }
 
     [Theory]
@@ -141,6 +145,7 @@ public sealed class OptionsValidationTests
         ["Instagram:AccessToken"] = "meta-access-token-value",
         ["OpenAI:ApiKey"] = "openai-api-key-value",
         ["OpenAI:Model"] = "gpt-4.1-mini",
+        ["OpenAI:TimeoutSeconds"] = "15",
         ["Telegram:BotToken"] = "telegram-bot-token-value",
         ["Telegram:ChatId"] = "-1001234567890",
         ["Database:ConnectionString"] = new NpgsqlConnectionStringBuilder

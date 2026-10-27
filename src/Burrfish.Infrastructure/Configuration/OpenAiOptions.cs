@@ -11,4 +11,7 @@ public sealed class OpenAiOptions
 
     /// <summary>Идентификатор используемой модели; не может быть <see langword="null"/>.</summary>
     public string Model { get; init; } = string.Empty;
+
+    /// <summary>Максимальная длительность одного обращения в секундах.</summary>
+    public int TimeoutSeconds { get; init; } = 15;
 }

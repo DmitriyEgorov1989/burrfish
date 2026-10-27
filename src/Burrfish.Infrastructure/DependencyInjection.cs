@@ -1,7 +1,9 @@
 using Burrfish.Application.Persistence;
 using Burrfish.Application.Instagram;
+using Burrfish.Application.OpenAI;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
+using Burrfish.Infrastructure.OpenAI;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Processing;
 using Microsoft.EntityFrameworkCore;
@@ -73,7 +75,24 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(OpenAiOptions.SectionName))
             .ValidateRequired(options => options.ApiKey, nameof(OpenAiOptions.ApiKey))
             .ValidateRequired(options => options.Model, nameof(OpenAiOptions.Model))
+            .Validate(
+                options => options.TimeoutSeconds is >= 1 and <= 60,
+                $"{nameof(OpenAiOptions.TimeoutSeconds)} must be between 1 and 60 seconds.")
             .ValidateOnStart();
+
+        services.AddSingleton<OpenAiRequestBuilder>();
+        services.AddSingleton<OpenAiResponseValidator>();
+        services.AddSingleton<OpenAiResponseReader>();
+        services.AddHttpClient<IAiDialogClient, OpenAiDialogClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.openai.com/v1/");
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false
+            })
+            .RedactLoggedHeaders(_ => true);
 
         services.AddOptions<TelegramOptions>()
             .Bind(configuration.GetSection(TelegramOptions.SectionName))

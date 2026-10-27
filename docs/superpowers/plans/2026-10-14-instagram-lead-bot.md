@@ -425,17 +425,23 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 **Файлы:**
 - Create: `src/Burrfish.Application/OpenAI/AiDialogDecision.cs`
 - Create: `src/Burrfish.Application/OpenAI/AiDialogRequest.cs`
+- Create: `src/Burrfish.Application/OpenAI/AiDialogResult.cs`
 - Create: `src/Burrfish.Application/OpenAI/IAiDialogClient.cs`
 - Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiDialogClient.cs`
+- Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiRequestBuilder.cs`
+- Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiResponseReader.cs`
 - Create: `src/Burrfish.Infrastructure/OpenAI/OpenAiResponseValidator.cs`
 - Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiResponseValidatorTests.cs`
 - Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiDialogClientTests.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiRequestBuilderTests.cs`
+- Create: `tests/Burrfish.Infrastructure.Tests/OpenAI/OpenAiLoggingTests.cs`
+- Create: `docs/openai-dialog.md`
 
 **Интерфейсы:**
 - Consumes: `OpenAiOptions`, текст и ограниченную историю диалога.
 - Produces: `IAiDialogClient.DecideAsync(AiDialogRequest, CancellationToken)` и закрытый набор `AiDialogDecisionKind`.
 
-- [ ] **Step 1: определить закрытый контракт решения**
+- [x] **Step 1: определить закрытый контракт решения**
 
 ```csharp
 /// <summary>Допустимое решение ИИ; произвольное действие не поддерживается.</summary>
@@ -453,21 +459,21 @@ public enum AiDialogDecisionKind
 public sealed record AiDialogDecision(AiDialogDecisionKind Kind, string? Text);
 ```
 
-- [ ] **Step 2: написать validator-тесты**
+- [x] **Step 2: написать validator-тесты**
 
 Проверить неизвестный kind, пустой вопрос, пустую потребность, лишнее действие, слишком длинный текст и корректные `price`/`services`. Некорректный ответ возвращает ожидаемый failure с исходным кодом/сообщением интеграции, но без полного model output в логе.
 
-- [ ] **Step 3: запустить узкий тест и реализовать validator**
+- [x] **Step 3: запустить узкий тест и реализовать validator**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiResponseValidatorTests
 ```
 
-- [ ] **Step 4: реализовать HTTP-клиент и контрактные тесты через подменный handler**
+- [x] **Step 4: реализовать HTTP-клиент и контрактные тесты через подменный handler**
 
 System prompt отделяет инструкции от недоверенного текста клиента. Запрос требует JSON schema; timeout и transient HTTP errors возвращаются как интеграционный failure, а не исключение бизнес-потока.
 
-- [ ] **Step 5: пройти OpenAI-тесты**
+- [x] **Step 5: пройти OpenAI-тесты**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiDialogClientTests
