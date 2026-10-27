@@ -3,6 +3,7 @@ using Burrfish.Application.Instagram;
 using Burrfish.Application.OpenAI;
 using Burrfish.Application.LeadQualification;
 using Burrfish.Application.Persistence;
+using Burrfish.Application.Telegram;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.Persistence;
@@ -34,6 +35,8 @@ public sealed class OptionsValidationTests
         { "OpenAI:TimeoutSeconds", "61", nameof(OpenAiOptions.TimeoutSeconds) },
         { "Telegram:BotToken", null, nameof(TelegramOptions.BotToken) },
         { "Telegram:ChatId", null, nameof(TelegramOptions.ChatId) },
+        { "Telegram:TimeoutSeconds", "0", nameof(TelegramOptions.TimeoutSeconds) },
+        { "Telegram:TimeoutSeconds", "61", nameof(TelegramOptions.TimeoutSeconds) },
         { "Database:ConnectionString", null, nameof(DatabaseOptions.ConnectionString) },
         {
             "Database:ConnectionString",
@@ -119,6 +122,7 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAiDialogClient>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IInstagramMessageSender>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ITelegramNotifier>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDialogTemplateProvider>());
         Assert.IsType<ProcessIncomingMessageCommandHandler>(scope.ServiceProvider.GetRequiredService<
             IRequestHandler<ProcessIncomingMessageCommand, ProcessIncomingMessageResult>>());
@@ -176,6 +180,7 @@ public sealed class OptionsValidationTests
         ["OpenAI:TimeoutSeconds"] = "15",
         ["Telegram:BotToken"] = "telegram-bot-token-value",
         ["Telegram:ChatId"] = "-1001234567890",
+        ["Telegram:TimeoutSeconds"] = "15",
         ["Database:ConnectionString"] = new NpgsqlConnectionStringBuilder
         {
             Host = "localhost"

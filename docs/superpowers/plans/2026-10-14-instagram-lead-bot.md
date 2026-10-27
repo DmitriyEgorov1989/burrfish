@@ -596,15 +596,17 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 - Consumes: `LeadDraft`, `TelegramOptions`, outbox dispatcher из Task 8.
 - Produces: `CreateLeadCommandHandler`, `ITelegramNotifier.SendLeadAsync` и тип outbox `telegram.lead-created.v1`.
 
-- [ ] **Step 1: написать форматтер-тесты**
+Создание заявки, переход в `OperatorHandoff` и постановка `telegram.lead-created.v1` были реализованы раньше внутри `ProcessIncomingMessageCommandHandler` и покрыты транзакционными тестами. Поэтому отдельные `CreateLeadCommand`, `Lead` и `LeadId` не добавляются: Task 9 дополняет существующий сценарий форматированием, Telegram-адаптером и обработкой задания общим `OutboxDispatcher`.
+
+- [x] **Step 1: написать форматтер-тесты**
 
 Сообщение содержит UTC-время, потребность, sender ID и username только при наличии; не содержит историю; корректно экранирует Telegram markup; ссылка строится только когда допустимые данные Meta доступны.
 
-- [ ] **Step 2: написать интеграционный тест транзакции**
+- [x] **Step 2: написать интеграционный тест транзакции**
 
 Подтверждение создаёт одну lead row, состояние `OperatorHandoff` и один Telegram outbox. Повтор того же client message не создаёт второй lead. Искусственный rollback не сохраняет ни один из трёх результатов.
 
-- [ ] **Step 3: реализовать минимальный сервис и notifier**
+- [x] **Step 3: реализовать минимальный сервис и notifier**
 
 ```csharp
 /// <summary>Отправляет уведомления о подтверждённых заявках.</summary>
@@ -615,7 +617,7 @@ public interface ITelegramNotifier
 }
 ```
 
-- [ ] **Step 4: пройти проверки от узких к широким**
+- [x] **Step 4: пройти проверки от узких к широким**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~TelegramLeadMessageFormatterTests

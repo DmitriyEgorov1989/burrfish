@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Ответы бота сохраняются как задания `instagram.reply.v1` в PostgreSQL outbox. `OutboxWorker` выбирает по одному доступному заданию и отправляет его через Instagram API with Instagram Login. Telegram-задания этим worker не обрабатываются.
+Ответы бота сохраняются как задания `instagram.reply.v1` в PostgreSQL outbox. `OutboxWorker` выбирает по одному доступному поддерживаемому заданию; Instagram-ответы он отправляет через Instagram API with Instagram Login. Доставка `telegram.lead-created.v1` описана в `docs/telegram-notifications.md`.
 
 ## Контракт Meta
 
@@ -31,7 +31,7 @@ HTTP-клиент не выполняет внутренние повторы. �
 
 ## Состояния и повторы
 
-`OutboxDispatcher` выбирает только доступные `Pending`-задания типа `instagram.reply.v1` через `FOR UPDATE SKIP LOCKED`.
+`OutboxDispatcher` выбирает доступные `Pending`-задания поддерживаемых типов через `FOR UPDATE SKIP LOCKED`. Правила ниже относятся к `instagram.reply.v1`.
 
 - Успешная отправка переводит задание в `Sent`; повторно оно не выбирается.
 - HTTP `408`, HTTP `429`, HTTP `5xx`, сетевая ошибка, таймаут и `error.is_transient=true` возвращают задание в `Pending`.

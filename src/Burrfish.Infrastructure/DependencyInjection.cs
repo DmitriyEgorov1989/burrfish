@@ -2,12 +2,14 @@ using Burrfish.Application.Persistence;
 using Burrfish.Application.Instagram;
 using Burrfish.Application.OpenAI;
 using Burrfish.Application.LeadQualification;
+using Burrfish.Application.Telegram;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.LeadQualification;
 using Burrfish.Infrastructure.OpenAI;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Processing;
+using Burrfish.Infrastructure.Telegram;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +80,17 @@ public static class DependencyInjection
                 AllowAutoRedirect = false
             })
             .RedactLoggedHeaders(_ => true);
+        services.AddSingleton<TelegramLeadMessageFormatter>();
+        services.AddHttpClient<ITelegramNotifier, TelegramNotifier>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.telegram.org/");
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false
+            })
+            .RemoveAllLoggers();
 
         services.AddOptions<InboxProcessingOptions>()
             .Bind(configuration.GetSection(InboxProcessingOptions.SectionName))
@@ -132,6 +145,9 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(TelegramOptions.SectionName))
             .ValidateRequired(options => options.BotToken, nameof(TelegramOptions.BotToken))
             .Validate(options => options.ChatId != 0, $"{nameof(TelegramOptions.ChatId)} is required.")
+            .Validate(
+                options => options.TimeoutSeconds is >= 1 and <= 60,
+                $"{nameof(TelegramOptions.TimeoutSeconds)} must be between 1 and 60 seconds.")
             .ValidateOnStart();
 
         services.AddOptions<DialogOptions>()

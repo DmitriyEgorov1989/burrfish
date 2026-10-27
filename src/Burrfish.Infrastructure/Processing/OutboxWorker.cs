@@ -1,5 +1,6 @@
 using Burrfish.Application.Instagram;
 using Burrfish.Application.Processing;
+using Burrfish.Application.Telegram;
 using Burrfish.Infrastructure.Configuration;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,14 @@ public sealed class OutboxWorker(
             {
                 throw new InvalidOperationException(
                     "Outbox processing requires SendInstagramReplyCommand handler.");
+            }
+
+            var telegramHandler = scope.ServiceProvider.GetService<
+                IRequestHandler<SendLeadNotificationCommand, DeliveryResult>>();
+            if (telegramHandler is null)
+            {
+                throw new InvalidOperationException(
+                    "Outbox processing requires SendLeadNotificationCommand handler.");
             }
         }
 

@@ -11,4 +11,7 @@ public sealed class TelegramOptions
 
     /// <summary>Идентификатор закрытого чата; значение <c>0</c> означает отсутствие настройки.</summary>
     public long ChatId { get; init; }
+
+    /// <summary>Максимальная длительность одной отправки в секундах.</summary>
+    public int TimeoutSeconds { get; init; } = 15;
 }
