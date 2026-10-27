@@ -500,17 +500,17 @@ dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.
 - Consumes: `Conversation`, `IAiDialogClient`, `IDialogTemplateProvider`, `IConversationRepository`, `IOutboxWriter`, `ILeadRepository`. Infrastructure преобразует `DialogOptions` в `DialogTemplates`, поэтому Application не зависит от конфигурационных типов внешнего слоя.
 - Produces: MediatR handler `ProcessIncomingMessageCommandHandler`, который возвращает `ProcessIncomingMessageResult`, и внутренний `DialogReply?`. Task 7 также включает `InboxProcessing:Enabled=true` после регистрации handler.
 
-- [ ] **Step 1: написать таблицу unit-сценариев**
+- [x] **Step 1: написать таблицу unit-сценариев**
 
 Покрыть `price`, `services`, уточнение, предложение передачи, «да», «нет», неоднозначное подтверждение, OpenAI failure fallback и `OperatorHandoff`. Проверить, что шаблон берётся из config, а текст ИИ не используется как цена или описание услуги.
 
-- [ ] **Step 2: запустить узкий тест**
+- [x] **Step 2: запустить узкий тест**
 
 ```powershell
 dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj --filter FullyQualifiedName~ProcessIncomingMessageCommandHandlerTests
 ```
 
-- [ ] **Step 3: реализовать orchestration без сетевых деталей**
+- [x] **Step 3: реализовать orchestration без сетевых деталей**
 
 ```csharp
 /// <summary>Исход обработки одного клиентского сообщения.</summary>
@@ -521,7 +521,9 @@ public sealed record DialogReply(string? Text, LeadDraft? Lead);
 
 Сохранение изменённого диалога, заявки и outbox выполняется вызывающим persistence boundary в одной транзакции.
 
-- [ ] **Step 4: пройти unit-набор**
+Реализованный handler добавляет заявку и задание `telegram.lead-created.v1` при подтверждении через существующие порты хранения. `InboxProcessor` фиксирует эти изменения вместе со статусом входящего события. Отправители Instagram и Telegram реализуются в следующих задачах. На этом этапе `AiDialogRequest.History` пуст: сохранённая история для многошагового уточнения вынесена в отдельную работу.
+
+- [x] **Step 4: пройти unit-набор**
 
 ```powershell
 dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj --filter FullyQualifiedName~LeadQualification

@@ -109,6 +109,7 @@ public sealed class InstagramWebhookIngestionTests(PostgresFixture fixture)
                     ["Instagram:AccessToken"] = "integration-access-token",
                     ["OpenAI:ApiKey"] = "integration-openai-key",
                     ["OpenAI:Model"] = "integration-model",
+                    ["InboxProcessing:Enabled"] = "false",
                     ["Telegram:BotToken"] = "integration-bot-token",
                     ["Telegram:ChatId"] = "1"
                 }));

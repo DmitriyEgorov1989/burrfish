@@ -33,6 +33,7 @@ internal sealed class InstagramWebhookFactory(
                 ["Instagram:AccessToken"] = "test-access-token",
                 ["OpenAI:ApiKey"] = "test-openai-key",
                 ["OpenAI:Model"] = "test-model",
+                ["InboxProcessing:Enabled"] = "false",
                 ["Telegram:BotToken"] = "test-bot-token",
                 ["Telegram:ChatId"] = "1"
             });

@@ -35,9 +35,27 @@
 - Ожидаемая временная ошибка или исключение handler откатывает его изменения и возвращает событие в `Pending`.
 - Задержка retry начинается с `30 секунд`, удваивается после каждой попытки и ограничена `900 секундами` (`15 минутами`).
 
-Worker выключен по умолчанию через `InboxProcessing:Enabled=false`. До реализации `ProcessIncomingMessageCommandHandler` в задаче #7 сообщения продолжают накапливаться в `Pending`. Попытка включить worker без handler останавливает запуск приложения с ошибкой конфигурации.
+В поставляемом `appsettings.json` обработка включена через `InboxProcessing:Enabled=true`. Обработчик `ProcessIncomingMessageCommandHandler` зарегистрирован через MediatR. Для приостановки обработки задайте `InboxProcessing:Enabled=false`: новые события продолжат сохраняться в `Pending`. Попытка включить обработку без зарегистрированного handler останавливает запуск приложения с ошибкой конфигурации.
 
 Гарантируется однократная фиксация транзакционного результата, а не единственный запуск handler: при аварийном завершении до commit событие будет обработано повторно. Внешние действия должны создаваться через outbox внутри той же транзакции.
+
+### Обработка диалога
+
+- В `BotActive` решение `Price` или `Services` выбирает утверждённый шаблон из `DialogOptions` и добавляет `HandoffOffer`. Исходный вопрос сохраняется как ожидающая подтверждения потребность.
+- `AskClarifyingQuestion` ставит в очередь проверенный вопрос ИИ, сохраняя `BotActive`.
+- `ProposeHandoff` сохраняет сформулированную потребность и показывает её через `HandoffConfirmationPrompt` с подстановкой `{need}`.
+- Ошибка OpenAI завершает текущее событие резервным ответом и предложением передать исходный вопрос. Ошибка интеграции не отправляется клиенту; повтор inbox ради повторного вызова OpenAI не назначается.
+- В `AwaitingHandoffConfirmation` ИИ не вызывается. Полный ответ сравнивается с ограниченным набором фраз после удаления внешних пробелов, завершающих `.`, `!`, `?` и приведения регистра. Согласие: `да`, `согласен`, `согласна`, `передайте`, `да, передайте`. Отказ: `нет`, `не надо`, `не нужно`, `не передавайте`, `нет, спасибо`. Другие ответы вызывают `AmbiguousConfirmationResponse` без изменения потребности.
+- Отказ возвращает `BotActive` без создания заявки и без дополнительного ответа. Согласие создаёт заявку и задание уведомления, переводит диалог в `OperatorHandoff`, не создавая заключительного ответа Instagram.
+- В `OperatorHandoff` следующие сообщения отмечаются обработанными без вызова OpenAI, новых заявок и ответов.
+
+В текущей реализации в OpenAI передаётся только текущее сообщение с пустой историей. Сохранение истории для многошагового уточнения требует отдельного этапа.
+
+### Внутренний контракт outbox
+
+Ответ Instagram сохраняется как `instagram.reply.v1` с ключом дедупликации `instagram.reply.v1:{ExternalEventId}` и JSON-полями `recipientId`, `text`. Уведомление сохраняется как `telegram.lead-created.v1` с ключом `telegram.lead-created.v1:{LeadId:D}` и JSON-полем `LeadId`, указывающим на сохранённую заявку.
+
+Состояние диалога, заявка и исходящие задания фиксируются вместе со статусом inbox. При конфликте сохранения обработчик возвращает исходный технический код конфликта; `InboxProcessor` откатывает прикладные изменения и назначает повтор. Уникальные индексы защищают заявку и задания от дублирования. Обработчики фактической доставки Instagram и Telegram относятся к следующим этапам; наличие задания в outbox ещё не означает его доставку.
 
 ## Конфиденциальность
 
@@ -57,6 +75,8 @@ Worker выключен по умолчанию через `InboxProcessing:Enab
 dotnet test .\tests\Burrfish.ApiContract.Tests\Burrfish.ApiContract.Tests.csproj --filter FullyQualifiedName~InstagramWebhook
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~InstagramWebhookIngestionTests
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~InboxProcessorTests
+dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj --filter FullyQualifiedName~LeadQualification
+dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~LeadQualificationInboxTests
 ```
 
-Вторая команда требует доступного Docker daemon.
+Команды проекта `Burrfish.IntegrationTests` требуют доступного Docker daemon.

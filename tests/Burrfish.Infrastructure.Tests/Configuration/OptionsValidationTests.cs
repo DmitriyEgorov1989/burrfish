@@ -1,6 +1,7 @@
 using Burrfish.Application;
 using Burrfish.Application.Instagram;
 using Burrfish.Application.OpenAI;
+using Burrfish.Application.LeadQualification;
 using Burrfish.Application.Persistence;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using MediatR;
 
 namespace Burrfish.Infrastructure.Tests.Configuration;
 
@@ -96,6 +98,9 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InstagramEventNormalizer>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAiDialogClient>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDialogTemplateProvider>());
+        Assert.IsType<ProcessIncomingMessageCommandHandler>(scope.ServiceProvider.GetRequiredService<
+            IRequestHandler<ProcessIncomingMessageCommand, ProcessIncomingMessageResult>>());
     }
 
     [Theory]

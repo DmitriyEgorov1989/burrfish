@@ -1,8 +1,10 @@
 using Burrfish.Application.Persistence;
 using Burrfish.Application.Instagram;
 using Burrfish.Application.OpenAI;
+using Burrfish.Application.LeadQualification;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
+using Burrfish.Infrastructure.LeadQualification;
 using Burrfish.Infrastructure.OpenAI;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Processing;
@@ -56,6 +58,7 @@ public static class DependencyInjection
         services.AddSingleton<IMetaWebhookParser, MetaWebhookParser>();
         services.AddSingleton<InstagramEventNormalizer>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IDialogTemplateProvider, ConfiguredDialogTemplateProvider>();
         services.AddScoped<InboxProcessor>();
 
         services.AddOptions<InboxProcessingOptions>()

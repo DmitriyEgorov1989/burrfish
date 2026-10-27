@@ -6,7 +6,7 @@ public sealed class InboxProcessingOptions
     /// <summary>Имя секции конфигурации.</summary>
     public const string SectionName = "InboxProcessing";
 
-    /// <summary>Признак включения worker; до появления прикладного handler выключен.</summary>
+    /// <summary>Признак включения фоновой обработки; задаётся секцией <c>InboxProcessing</c>.</summary>
     public bool Enabled { get; init; }
 
     /// <summary>Пауза пустого опроса в миллисекундах.</summary>
