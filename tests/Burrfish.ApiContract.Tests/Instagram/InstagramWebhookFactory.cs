@@ -31,9 +31,11 @@ internal sealed class InstagramWebhookFactory(
                 ["Instagram:AppSecret"] = AppSecret,
                 ["Instagram:VerifyToken"] = VerifyToken,
                 ["Instagram:AccessToken"] = "test-access-token",
+                ["Instagram:ApiVersion"] = "v26.0",
                 ["OpenAI:ApiKey"] = "test-openai-key",
                 ["OpenAI:Model"] = "test-model",
                 ["InboxProcessing:Enabled"] = "false",
+                ["OutboxProcessing:Enabled"] = "false",
                 ["Telegram:BotToken"] = "test-bot-token",
                 ["Telegram:ChatId"] = "1"
             });

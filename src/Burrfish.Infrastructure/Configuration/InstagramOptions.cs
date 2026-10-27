@@ -17,4 +17,10 @@ public sealed class InstagramOptions
 
     /// <summary>Токен отправки сообщений; не может быть <see langword="null"/>.</summary>
     public string AccessToken { get; init; } = string.Empty;
+
+    /// <summary>Версия Instagram Graph API; не может быть <see langword="null"/>.</summary>
+    public string ApiVersion { get; init; } = string.Empty;
+
+    /// <summary>Максимальная длительность одной отправки в секундах.</summary>
+    public int SendTimeoutSeconds { get; init; } = 15;
 }

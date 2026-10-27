@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHostedService<InboxWorker>();
+builder.Services.AddHostedService<OutboxWorker>();
 
 var app = builder.Build();
 app.MapGet("/webhooks/instagram", InstagramWebhookEndpoints.Verify);

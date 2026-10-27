@@ -24,6 +24,10 @@ public sealed class OptionsValidationTests
         { "Instagram:AppSecret", null, nameof(InstagramOptions.AppSecret) },
         { "Instagram:VerifyToken", null, nameof(InstagramOptions.VerifyToken) },
         { "Instagram:AccessToken", null, nameof(InstagramOptions.AccessToken) },
+        { "Instagram:ApiVersion", null, nameof(InstagramOptions.ApiVersion) },
+        { "Instagram:ApiVersion", "latest", nameof(InstagramOptions.ApiVersion) },
+        { "Instagram:SendTimeoutSeconds", "0", nameof(InstagramOptions.SendTimeoutSeconds) },
+        { "Instagram:SendTimeoutSeconds", "61", nameof(InstagramOptions.SendTimeoutSeconds) },
         { "OpenAI:ApiKey", null, nameof(OpenAiOptions.ApiKey) },
         { "OpenAI:Model", null, nameof(OpenAiOptions.Model) },
         { "OpenAI:TimeoutSeconds", "0", nameof(OpenAiOptions.TimeoutSeconds) },
@@ -51,6 +55,21 @@ public sealed class OptionsValidationTests
             "InboxProcessing:MaxRetryDelaySeconds",
             "29",
             nameof(InboxProcessingOptions.MaxRetryDelaySeconds)
+        },
+        {
+            "OutboxProcessing:PollIntervalMilliseconds",
+            "0",
+            nameof(OutboxProcessingOptions.PollIntervalMilliseconds)
+        },
+        {
+            "OutboxProcessing:RetryBaseDelaySeconds",
+            "0",
+            nameof(OutboxProcessingOptions.RetryBaseDelaySeconds)
+        },
+        {
+            "OutboxProcessing:MaxRetryDelaySeconds",
+            "29",
+            nameof(OutboxProcessingOptions.MaxRetryDelaySeconds)
         },
         { "Dialog:PriceExamples:0", null, nameof(DialogOptions.PriceExamples) },
         { "Dialog:ServicesExamples:0", null, nameof(DialogOptions.ServicesExamples) },
@@ -97,7 +116,9 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMetaWebhookParser>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InstagramEventNormalizer>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAiDialogClient>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IInstagramMessageSender>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDialogTemplateProvider>());
         Assert.IsType<ProcessIncomingMessageCommandHandler>(scope.ServiceProvider.GetRequiredService<
             IRequestHandler<ProcessIncomingMessageCommand, ProcessIncomingMessageResult>>());
@@ -148,6 +169,8 @@ public sealed class OptionsValidationTests
         ["Instagram:AppSecret"] = "meta-app-secret-value",
         ["Instagram:VerifyToken"] = "meta-verify-token-value",
         ["Instagram:AccessToken"] = "meta-access-token-value",
+        ["Instagram:ApiVersion"] = "v26.0",
+        ["Instagram:SendTimeoutSeconds"] = "15",
         ["OpenAI:ApiKey"] = "openai-api-key-value",
         ["OpenAI:Model"] = "gpt-4.1-mini",
         ["OpenAI:TimeoutSeconds"] = "15",
@@ -169,6 +192,10 @@ public sealed class OptionsValidationTests
         ["InboxProcessing:Enabled"] = "false",
         ["InboxProcessing:PollIntervalMilliseconds"] = "1000",
         ["InboxProcessing:RetryBaseDelaySeconds"] = "30",
-        ["InboxProcessing:MaxRetryDelaySeconds"] = "900"
+        ["InboxProcessing:MaxRetryDelaySeconds"] = "900",
+        ["OutboxProcessing:Enabled"] = "false",
+        ["OutboxProcessing:PollIntervalMilliseconds"] = "1000",
+        ["OutboxProcessing:RetryBaseDelaySeconds"] = "30",
+        ["OutboxProcessing:MaxRetryDelaySeconds"] = "900"
     };
 }

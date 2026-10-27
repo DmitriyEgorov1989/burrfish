@@ -41,6 +41,13 @@ public static class DependencyInjection
             .ValidateRequired(options => options.AppSecret, nameof(InstagramOptions.AppSecret))
             .ValidateRequired(options => options.VerifyToken, nameof(InstagramOptions.VerifyToken))
             .ValidateRequired(options => options.AccessToken, nameof(InstagramOptions.AccessToken))
+            .ValidateRequired(options => options.ApiVersion, nameof(InstagramOptions.ApiVersion))
+            .Validate(
+                options => IsValidApiVersion(options.ApiVersion),
+                $"{nameof(InstagramOptions.ApiVersion)} must use the vNN.0 format.")
+            .Validate(
+                options => options.SendTimeoutSeconds is >= 1 and <= 60,
+                $"{nameof(InstagramOptions.SendTimeoutSeconds)} must be between 1 and 60 seconds.")
             .ValidateOnStart();
 
         services.AddDbContext<BurrfishDbContext>((provider, options) =>
@@ -60,6 +67,17 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IDialogTemplateProvider, ConfiguredDialogTemplateProvider>();
         services.AddScoped<InboxProcessor>();
+        services.AddScoped<OutboxDispatcher>();
+        services.AddHttpClient<IInstagramMessageSender, InstagramGraphApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://graph.instagram.com/");
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false
+            })
+            .RedactLoggedHeaders(_ => true);
 
         services.AddOptions<InboxProcessingOptions>()
             .Bind(configuration.GetSection(InboxProcessingOptions.SectionName))
@@ -72,6 +90,19 @@ public static class DependencyInjection
             .Validate(
                 options => options.MaxRetryDelaySeconds >= options.RetryBaseDelaySeconds,
                 $"{nameof(InboxProcessingOptions.MaxRetryDelaySeconds)} must not be less than {nameof(InboxProcessingOptions.RetryBaseDelaySeconds)}.")
+            .ValidateOnStart();
+
+        services.AddOptions<OutboxProcessingOptions>()
+            .Bind(configuration.GetSection(OutboxProcessingOptions.SectionName))
+            .Validate(
+                options => options.PollIntervalMilliseconds > 0,
+                $"{nameof(OutboxProcessingOptions.PollIntervalMilliseconds)} must be positive.")
+            .Validate(
+                options => options.RetryBaseDelaySeconds > 0,
+                $"{nameof(OutboxProcessingOptions.RetryBaseDelaySeconds)} must be positive.")
+            .Validate(
+                options => options.MaxRetryDelaySeconds >= options.RetryBaseDelaySeconds,
+                $"{nameof(OutboxProcessingOptions.MaxRetryDelaySeconds)} must not be less than {nameof(OutboxProcessingOptions.RetryBaseDelaySeconds)}.")
             .ValidateOnStart();
 
         services.AddOptions<OpenAiOptions>()
@@ -163,4 +194,10 @@ public static class DependencyInjection
             return false;
         }
     }
+
+    private static bool IsValidApiVersion(string value) =>
+        value is { Length: >= 5 }
+        && value[0] == 'v'
+        && value.EndsWith(".0", StringComparison.Ordinal)
+        && value.AsSpan(1, value.Length - 3).IndexOfAnyExceptInRange('0', '9') < 0;
 }

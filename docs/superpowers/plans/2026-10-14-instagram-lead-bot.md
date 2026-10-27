@@ -550,21 +550,21 @@ dotnet test .\tests\Burrfish.Application.Tests\Burrfish.Application.Tests.csproj
 - Consumes: `DialogReply.Text`, Instagram outbox payload.
 - Produces: `IInstagramMessageSender.SendAsync(InstagramReply, CancellationToken)` и `DeliveryResult` со значениями `Sent`, `Retry`, `Failed`.
 
-- [ ] **Step 1: написать контрактные тесты запроса Meta**
+- [x] **Step 1: написать контрактные тесты запроса Meta**
 
 Проверить URL/метод по актуальной документации Meta, bearer token, recipient ID, JSON escaping, успешный response ID, `429`/`5xx` как retry и постоянный `4xx` как failed. Токен и body не должны попадать в сообщение лога.
 
-- [ ] **Step 2: реализовать sender после падающего теста**
+- [x] **Step 2: реализовать sender после падающего теста**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~InstagramGraphApiClientTests
 ```
 
-- [ ] **Step 3: написать интеграционный тест dispatcher**
+- [x] **Step 3: написать интеграционный тест dispatcher**
 
 Один pending item захватывается одним worker; retry увеличивает attempt и задаёт будущий `NextAttemptAt`; sent item повторно не выбирается; постоянная ошибка сохраняет исходные код и сообщение Meta без сокрытия.
 
-- [ ] **Step 4: пройти contract и integration проверки**
+- [x] **Step 4: пройти contract и integration проверки**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~Instagram
