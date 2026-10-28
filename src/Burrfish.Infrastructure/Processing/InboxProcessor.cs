@@ -1,6 +1,7 @@
 using Burrfish.Application.Instagram;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
+using Burrfish.Infrastructure.Observability;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Persistence.Entities;
 using MediatR;
@@ -15,7 +16,8 @@ public sealed class InboxProcessor(
     InstagramEventNormalizer normalizer,
     ISender sender,
     TimeProvider timeProvider,
-    IOptions<InboxProcessingOptions> options)
+    IOptions<InboxProcessingOptions> options,
+    BurrfishMetrics? metrics = null)
 {
     /// <summary>Выполняет одну попытку обработки доступного события.</summary>
     /// <param name="cancellationToken">Токен остановки обработки.</param>
@@ -59,6 +61,7 @@ public sealed class InboxProcessor(
                 : "EventIdentityMismatch";
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            metrics?.RecordEvent(EventOutcome.Ignored);
             return true;
         }
 
@@ -66,6 +69,7 @@ public sealed class InboxProcessor(
         await transaction.CreateSavepointAsync(savepoint, cancellationToken);
 
         ProcessIncomingMessageResult result;
+        var processingStarted = timeProvider.GetTimestamp();
         try
         {
             result = await sender.Send(
@@ -85,6 +89,10 @@ public sealed class InboxProcessor(
                 exception.GetType().Name,
                 cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            metrics?.RecordRetry(RetryComponent.Inbox);
+            metrics?.RecordMessageDuration(
+                timeProvider.GetElapsedTime(processingStarted).TotalMilliseconds,
+                succeeded: false);
             return true;
         }
 
@@ -104,6 +112,21 @@ public sealed class InboxProcessor(
         }
 
         await transaction.CommitAsync(cancellationToken);
+        if (result.Succeeded)
+        {
+            metrics?.RecordEvent(EventOutcome.Processed);
+            if (result.LeadCreated)
+            {
+                metrics?.RecordLeadCreated();
+            }
+        }
+        else
+        {
+            metrics?.RecordRetry(RetryComponent.Inbox);
+        }
+        metrics?.RecordMessageDuration(
+            timeProvider.GetElapsedTime(processingStarted).TotalMilliseconds,
+            result.Succeeded);
         return true;
     }
 

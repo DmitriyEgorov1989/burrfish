@@ -15,7 +15,8 @@ public sealed class OutboxWorker(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxProcessingOptions> options,
     TimeProvider timeProvider,
-    ILogger<OutboxWorker> logger) : BackgroundService
+    ILogger<OutboxWorker> logger,
+    WorkerHeartbeat? heartbeat = null) : BackgroundService
 {
     /// <inheritdoc />
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -54,6 +55,7 @@ public sealed class OutboxWorker(
         var pause = TimeSpan.FromMilliseconds(options.Value.PollIntervalMilliseconds);
         while (!stoppingToken.IsCancellationRequested)
         {
+            heartbeat?.Record(WorkerKind.Outbox);
             var processed = false;
             try
             {

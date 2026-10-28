@@ -1,6 +1,7 @@
 using System.Text;
 using Burrfish.Application.Instagram;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Observability;
 using MediatR;
 using Microsoft.Extensions.Options;
 
@@ -44,27 +45,32 @@ public static class InstagramWebhookEndpoints
         HttpRequest request,
         IMetaSignatureVerifier verifier,
         ISender sender,
+        BurrfishMetrics metrics,
         CancellationToken cancellationToken)
     {
         if (!request.Headers.TryGetValue(SignatureHeader, out var signatures)
             || signatures.Count != 1)
         {
+            metrics.RecordEvent(EventOutcome.Rejected);
             return Results.StatusCode(StatusCodes.Status401Unauthorized);
         }
 
         if (request.ContentLength is > MaxBodyBytes)
         {
+            metrics.RecordEvent(EventOutcome.Rejected);
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
         }
 
         var body = await ReadBodyAsync(request.Body, cancellationToken);
         if (body is null)
         {
+            metrics.RecordEvent(EventOutcome.Rejected);
             return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
         }
 
         if (!verifier.IsValid(body, signatures[0]))
         {
+            metrics.RecordEvent(EventOutcome.Rejected);
             return Results.StatusCode(StatusCodes.Status401Unauthorized);
         }
 
@@ -72,6 +78,7 @@ public static class InstagramWebhookEndpoints
             new ReceiveInstagramWebhookCommand(body, DateTimeOffset.UtcNow),
             cancellationToken);
 
+        metrics.RecordEvent(accepted ? EventOutcome.Accepted : EventOutcome.Rejected);
         return accepted ? Results.Ok() : Results.BadRequest();
     }
 

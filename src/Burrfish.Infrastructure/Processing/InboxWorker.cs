@@ -13,7 +13,8 @@ public sealed class InboxWorker(
     IServiceScopeFactory scopeFactory,
     IOptions<InboxProcessingOptions> options,
     TimeProvider timeProvider,
-    ILogger<InboxWorker> logger) : BackgroundService
+    ILogger<InboxWorker> logger,
+    WorkerHeartbeat? heartbeat = null) : BackgroundService
 {
     /// <inheritdoc />
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -45,6 +46,7 @@ public sealed class InboxWorker(
         var pause = TimeSpan.FromMilliseconds(options.Value.PollIntervalMilliseconds);
         while (!stoppingToken.IsCancellationRequested)
         {
+            heartbeat?.Record(WorkerKind.Inbox);
             var processed = false;
             try
             {

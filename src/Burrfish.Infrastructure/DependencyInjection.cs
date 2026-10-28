@@ -7,6 +7,7 @@ using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
 using Burrfish.Infrastructure.LeadQualification;
 using Burrfish.Infrastructure.OpenAI;
+using Burrfish.Infrastructure.Observability;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Processing;
 using Burrfish.Infrastructure.Telegram;
@@ -67,9 +68,13 @@ public static class DependencyInjection
         services.AddSingleton<IMetaWebhookParser, MetaWebhookParser>();
         services.AddSingleton<InstagramEventNormalizer>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<WorkerHeartbeat>();
+        services.AddSingleton<BurrfishMetrics>();
         services.AddSingleton<IDialogTemplateProvider, ConfiguredDialogTemplateProvider>();
         services.AddScoped<InboxProcessor>();
         services.AddScoped<OutboxDispatcher>();
+        services.AddScoped<DataRetentionService>();
+        services.AddScoped<QueueMetricsCollector>();
         services.AddHttpClient<IInstagramMessageSender, InstagramGraphApiClient>(client =>
             {
                 client.BaseAddress = new Uri("https://graph.instagram.com/");
@@ -116,6 +121,20 @@ public static class DependencyInjection
             .Validate(
                 options => options.MaxRetryDelaySeconds >= options.RetryBaseDelaySeconds,
                 $"{nameof(OutboxProcessingOptions.MaxRetryDelaySeconds)} must not be less than {nameof(OutboxProcessingOptions.RetryBaseDelaySeconds)}.")
+            .ValidateOnStart();
+
+        services.AddOptions<DataRetentionOptions>()
+            .Bind(configuration.GetSection(DataRetentionOptions.SectionName))
+            .Validate(
+                options => options.IntervalMinutes > 0,
+                $"{nameof(DataRetentionOptions.IntervalMinutes)} must be positive.")
+            .ValidateOnStart();
+
+        services.AddOptions<ObservabilityOptions>()
+            .Bind(configuration.GetSection(ObservabilityOptions.SectionName))
+            .Validate(
+                options => options.QueueRefreshIntervalSeconds > 0,
+                $"{nameof(ObservabilityOptions.QueueRefreshIntervalSeconds)} must be positive.")
             .ValidateOnStart();
 
         services.AddOptions<OpenAiOptions>()

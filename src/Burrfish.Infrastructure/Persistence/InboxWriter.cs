@@ -1,10 +1,11 @@
 using Burrfish.Application.Persistence;
+using Burrfish.Infrastructure.Observability;
 using Microsoft.EntityFrameworkCore;
 
 namespace Burrfish.Infrastructure.Persistence;
 
 /// <summary>Сохраняет входящие события средствами PostgreSQL.</summary>
-public sealed class InboxWriter(BurrfishDbContext db) : IInboxWriter
+public sealed class InboxWriter(BurrfishDbContext db, BurrfishMetrics? metrics = null) : IInboxWriter
 {
     /// <inheritdoc />
     public async Task<bool> TryStoreAsync(
@@ -24,6 +25,7 @@ public sealed class InboxWriter(BurrfishDbContext db) : IInboxWriter
             """,
             cancellationToken);
 
+        metrics?.RecordEvent(affected == 1 ? EventOutcome.Stored : EventOutcome.Duplicate);
         return affected == 1;
     }
 }

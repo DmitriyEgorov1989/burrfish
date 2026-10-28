@@ -645,25 +645,25 @@ dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj -
 - Consumes: все timestamped entities и worker statuses.
 - Produces: `DataRetentionService.DeleteExpiredAsync`, `/health/live`, `/health/ready`, метрики счётчиков и длительности из спецификации.
 
-- [ ] **Step 1: написать retention-тесты на фиксированном времени**
+- [x] **Step 1: написать retention-тесты на фиксированном времени**
 
 Записи ровно моложе 30 суток сохраняются; записи старше 30 суток удаляются, включая окончательно ошибочные и всё ещё pending outbox с клиентскими данными; после удаления `OperatorHandoff` новое сообщение создаёт `BotActive`. Перед удалением неотправленного задания записываются только технические код ошибки и счётчик без payload.
 
-- [ ] **Step 2: реализовать retention и пройти узкий тест**
+- [x] **Step 2: реализовать retention и пройти узкий тест**
 
 ```powershell
 dotnet test .\tests\Burrfish.IntegrationTests\Burrfish.IntegrationTests.csproj --filter FullyQualifiedName~DataRetentionServiceTests
 ```
 
-- [ ] **Step 3: написать health-контракт**
+- [x] **Step 3: написать health-контракт**
 
 `/health/live` проверяет процесс; `/health/ready` проверяет PostgreSQL и свежий heartbeat worker. OpenAI, Meta и Telegram не делают webhook unready. Endpoint не возвращает connection string или exception stack клиенту.
 
-- [ ] **Step 4: проверить безопасные журналы**
+- [x] **Step 4: проверить безопасные журналы**
 
 Сгенерировать тестовые маркеры для message text и API tokens, выполнить error paths и убедиться, что маркеры отсутствуют в captured logs.
 
-- [ ] **Step 5: пройти relevant-набор**
+- [x] **Step 5: пройти relevant-набор**
 
 ```powershell
 dotnet test .\tests\Burrfish.Infrastructure.Tests\Burrfish.Infrastructure.Tests.csproj --filter FullyQualifiedName~SensitiveLoggingTests

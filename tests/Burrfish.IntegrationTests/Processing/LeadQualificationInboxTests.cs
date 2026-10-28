@@ -91,6 +91,47 @@ public sealed class LeadQualificationInboxTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Message_after_expired_operator_handoff_starts_a_new_bot_active_conversation()
+    {
+        await ClearQueueAsync();
+        var sender = Guid.NewGuid().ToString("N");
+        var oldConversationId = Guid.NewGuid();
+        var model = Conversation.Start();
+        Assert.True(model.ProposeHandoff("Старый запрос").Succeeded);
+        Assert.True(model.ConfirmHandoff(Now.AddDays(-31)).Succeeded);
+        await using (var db = fixture.CreateContext())
+        {
+            new ConversationRepository(db).Add(new StoredConversation(
+                oldConversationId,
+                $"{AccountId}:{sender}",
+                sender,
+                null,
+                Now.AddDays(-30),
+                model));
+            await db.SaveChangesAsync();
+        }
+        await using (var db = fixture.CreateContext())
+        {
+            await new DataRetentionService(
+                    db,
+                    new TestClock(),
+                    Options.Create(new DialogOptions { RetentionDays = 30 }))
+                .DeleteExpiredAsync(CancellationToken.None);
+        }
+
+        var ai = new TestAi(decisionKind: AiDialogDecisionKind.AskClarifyingQuestion);
+        await using var provider = CreateProvider(ai);
+        await EnqueueAsync(sender, "Новый вопрос");
+        await ProcessAsync(provider);
+
+        await using var verificationDb = fixture.CreateContext();
+        var conversation = await verificationDb.Conversations.SingleAsync(x => x.SenderId == sender);
+        Assert.NotEqual(oldConversationId, conversation.Id);
+        Assert.Equal(ConversationState.BotActive, conversation.Model.State);
+        Assert.Equal(1, ai.Calls);
+    }
+
+    [Fact]
     public async Task Concurrent_confirmations_create_one_lead_and_retry_loser_without_reply()
     {
         await ClearQueueAsync();
@@ -211,7 +252,9 @@ public sealed class LeadQualificationInboxTests(PostgresFixture fixture)
         return await new InboxWriter(db).TryStoreAsync(new(eventId, "{}", Now), CancellationToken.None);
     }
 
-    private sealed class TestAi(bool fail = false) : IAiDialogClient
+    private sealed class TestAi(
+        bool fail = false,
+        AiDialogDecisionKind decisionKind = AiDialogDecisionKind.Price) : IAiDialogClient
     {
         public int Calls { get; private set; }
 
@@ -220,7 +263,11 @@ public sealed class LeadQualificationInboxTests(PostgresFixture fixture)
             Calls++;
             return Task.FromResult(fail
                 ? AiDialogResult.Failure(new("Timeout", "OpenAI request timed out.", null, true))
-                : AiDialogResult.Success(new(AiDialogDecisionKind.Price, null)));
+                : AiDialogResult.Success(new(
+                    decisionKind,
+                    decisionKind == AiDialogDecisionKind.AskClarifyingQuestion
+                        ? "Уточните новый запрос."
+                        : null)));
         }
     }
 

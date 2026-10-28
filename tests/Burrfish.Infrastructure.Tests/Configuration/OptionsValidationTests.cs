@@ -6,6 +6,7 @@ using Burrfish.Application.Persistence;
 using Burrfish.Application.Telegram;
 using Burrfish.Infrastructure.Configuration;
 using Burrfish.Infrastructure.Instagram;
+using Burrfish.Infrastructure.Observability;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Processing;
 using Microsoft.Extensions.Configuration;
@@ -74,6 +75,16 @@ public sealed class OptionsValidationTests
             "29",
             nameof(OutboxProcessingOptions.MaxRetryDelaySeconds)
         },
+        {
+            "DataRetention:IntervalMinutes",
+            "0",
+            nameof(DataRetentionOptions.IntervalMinutes)
+        },
+        {
+            "Observability:QueueRefreshIntervalSeconds",
+            "0",
+            nameof(ObservabilityOptions.QueueRefreshIntervalSeconds)
+        },
         { "Dialog:PriceExamples:0", null, nameof(DialogOptions.PriceExamples) },
         { "Dialog:ServicesExamples:0", null, nameof(DialogOptions.ServicesExamples) },
         { "Dialog:PriceResponse", null, nameof(DialogOptions.PriceResponse) },
@@ -120,6 +131,10 @@ public sealed class OptionsValidationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InstagramEventNormalizer>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutboxDispatcher>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<DataRetentionService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<QueueMetricsCollector>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<BurrfishMetrics>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<WorkerHeartbeat>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAiDialogClient>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IInstagramMessageSender>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ITelegramNotifier>());
@@ -201,6 +216,10 @@ public sealed class OptionsValidationTests
         ["OutboxProcessing:Enabled"] = "false",
         ["OutboxProcessing:PollIntervalMilliseconds"] = "1000",
         ["OutboxProcessing:RetryBaseDelaySeconds"] = "30",
-        ["OutboxProcessing:MaxRetryDelaySeconds"] = "900"
+        ["OutboxProcessing:MaxRetryDelaySeconds"] = "900",
+        ["DataRetention:Enabled"] = "false",
+        ["DataRetention:IntervalMinutes"] = "60",
+        ["Observability:Enabled"] = "false",
+        ["Observability:QueueRefreshIntervalSeconds"] = "5"
     };
 }

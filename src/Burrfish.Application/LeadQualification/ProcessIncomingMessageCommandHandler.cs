@@ -125,6 +125,6 @@ public sealed class ProcessIncomingMessageCommandHandler(
         }
 
         var commit = await persistence.CommitAsync(cancellationToken);
-        return new(commit.Succeeded, commit.ErrorCode);
+        return new(commit.Succeeded, commit.ErrorCode, commit.Succeeded && reply.Lead is not null);
     }
 }

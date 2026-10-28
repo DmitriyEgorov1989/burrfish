@@ -3,6 +3,7 @@ using Burrfish.Application.Instagram;
 using Burrfish.Application.Processing;
 using Burrfish.Application.Telegram;
 using Burrfish.Infrastructure.Configuration;
+using Burrfish.Infrastructure.Observability;
 using Burrfish.Infrastructure.Persistence;
 using Burrfish.Infrastructure.Persistence.Entities;
 using MediatR;
@@ -16,7 +17,8 @@ public sealed class OutboxDispatcher(
     BurrfishDbContext db,
     ISender sender,
     TimeProvider timeProvider,
-    IOptions<OutboxProcessingOptions> options)
+    IOptions<OutboxProcessingOptions> options,
+    BurrfishMetrics? metrics = null)
 {
     private const string InstagramReplyType = "instagram.reply.v1";
     private const string TelegramLeadType = "telegram.lead-created.v1";
@@ -64,6 +66,12 @@ public sealed class OutboxDispatcher(
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (item.Status == OutboxMessageStatus.Pending)
+        {
+            metrics?.RecordRetry(item.Type == TelegramLeadType
+                ? RetryComponent.Telegram
+                : RetryComponent.Instagram);
+        }
         return true;
     }
 
